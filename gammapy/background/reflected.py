@@ -2,8 +2,8 @@
 from __future__ import absolute_import, division, print_function, unicode_literals
 import logging
 import numpy as np
-from astropy.coordinates import Angle
-from regions import PixCoord, CirclePixelRegion
+from astropy.coordinates import Angle, SkyCoord
+from regions import PixCoord, CirclePixelRegion, CircleSkyRegion
 from ..maps import WcsNDMap
 from .background_estimate import BackgroundEstimate
 
@@ -150,20 +150,25 @@ class ReflectedRegionsFinder(object):
 
     def setup(self):
         """Compute parameters for reflected regions algorithm."""
-        wcs = self.exclusion_mask.geom.wcs
-        self._pix_region = self.region.to_pixel(wcs)
-        self._pix_center = PixCoord(*self.center.to_pixel(wcs))
-        dx = self._pix_region.center.x - self._pix_center.x
-        dy = self._pix_region.center.y - self._pix_center.y
 
+        # Define new frame centered on center. For the moment, stay aligned with coordinate system.
+        self.fov_frame = self.center.skyoffset_frame(rotation=Angle(0,'deg'))
+        # Need to evaluate well role of merge_attribute esp. with conversion to AltAz systems
+        self._region_center = self.region.center.transform_to(self.fov_frame, merge_attributes=True)
+
+        dx = self._region_center.lon
+        dy = self._region_center.lat
+        print(dx,dy)
         # Offset of region in pix coordinates
-        self._offset = np.hypot(dx, dy)
+        self._offset = self.center.separation(self.region.center)
+        tmp_offset = np.hypot(dx, dy)
+        print(tmp_offset, self._offset)
 
         # Starting angle of region
         self._angle = Angle(np.arctan2(dx, dy), 'rad')
 
         # Minimum angle a circle has to be moved to not overlap with previous one
-        min_ang = Angle(2 * np.arcsin(self._pix_region.radius / self._offset), 'rad')
+        min_ang = Angle(2 * np.arcsin(self.region.radius / self._offset), 'rad')
 
         # Add required minimal distance between two off regions
         self._min_ang = min_ang + self.min_distance
@@ -179,15 +184,16 @@ class ReflectedRegionsFinder(object):
         curr_angle = self._angle + self._min_ang + self.min_distance_input
         reflected_regions = []
         while curr_angle < self._max_angle:
-            test_pos = self._compute_xy(self._pix_center, self._offset, curr_angle)
-            test_reg = CirclePixelRegion(test_pos, self._pix_region.radius)
-            if not self._is_inside_exclusion(test_reg, self._distance_image):
-                refl_region = test_reg.to_sky(self.exclusion_mask.geom.wcs)
-                log.debug('Placing reflected region\n{}'.format(refl_region))
-                reflected_regions.append(refl_region)
-                curr_angle = curr_angle + self._min_ang
-            else:
-                curr_angle = curr_angle + self.angle_increment
+            curr_frame = self.center.skyoffset_frame(rotation=curr_angle)
+            curr_pos = SkyCoord(self._offset,Angle(0,'deg'), frame=curr_frame)
+            refl_region = CircleSkyRegion(curr_pos, self.region.radius)
+#            if not self._is_inside_exclusion(test_reg, self._distance_image):
+#                refl_region = test_reg.to_sky(self.exclusion_mask.geom.wcs)
+#                log.debug('Placing reflected region\n{}'.format(refl_region))
+            reflected_regions.append(refl_region)
+            curr_angle = curr_angle + self._min_ang
+#            else:
+#            curr_angle = curr_angle + self.angle_increment
 
         log.debug('Found {} reflected regions'.format(len(reflected_regions)))
         self.reflected_regions = reflected_regions

@@ -8,6 +8,7 @@ from astropy.io import fits
 from astropy.coordinates import SkyCoord
 from astropy.coordinates.angle_utilities import angular_separation
 from astropy.coordinates import Angle
+from astropy.units import Quantity
 import astropy.wcs.utils
 import astropy.units as u
 from regions import SkyRegion
@@ -589,6 +590,9 @@ class WcsGeom(MapGeom):
             coords = tuple([c[np.isfinite(c)] for c in coords])
 
         axes_names = ['lon', 'lat'] + [ax.name for ax in self.axes]
+        axes_units = ['deg', 'deg'] + [ax.unit for ax in self.axes]
+
+        coords = tuple([Quantity(coord,unit)] for coord, unit in zip(coords, axes_units))
         cdict = OrderedDict(zip(axes_names, coords))
 
         return MapCoord.create(cdict, coordsys=self.coordsys)

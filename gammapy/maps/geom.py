@@ -11,6 +11,7 @@ from astropy.utils.misc import InheritDocstrings
 from astropy.io import fits
 from astropy import units as u
 from astropy.coordinates import SkyCoord
+from astropy.units import Quantity
 from ..utils.scripts import make_path
 from .utils import find_hdu, find_bands_hdu
 
@@ -653,19 +654,21 @@ class MapCoord(object):
             raise ValueError("data dictionary must contain axes named 'lon' and 'lat'.")
 
         self._data = OrderedDict([
-            (k, np.array(v, ndmin=1, copy=copy))
+            (k, Quantity(v, ndmin=1, copy=copy))
             for k, v in data.items()
         ])
+        units = [_.unit for _ in self._data.values()]
         vals = np.broadcast_arrays(*self._data.values())
         self._data = OrderedDict(zip(self._data.keys(), vals))
+        self._unit = OrderedDict(zip(self._data.keys(), units))
         self._coordsys = coordsys
         self._match_by_name = match_by_name
 
     def __getitem__(self, key):
         if isinstance(key, six.string_types):
-            return self._data[key]
+            return self._data[key]*self._unit[key]
         else:
-            return list(self._data.values())[key]
+            return list(self._data.values())[key]*list(self._unit.values())[key]
 
     def __iter__(self):
         return iter(self._data.values())

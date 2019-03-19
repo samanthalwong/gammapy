@@ -1,0 +1,121 @@
+.. include:: ../../references.txt
+
+.. _pig-010:
+
+***************************************
+PIG 10 - Evolution od spectral analysis
+***************************************
+
+* Author: Régis Terrier (editor) & Axel Donath
+* Created: March 19, 2019
+* Accepted:
+* Status: draft
+* Discussion:
+
+Introduction
+============
+
+
+Current data formats
+====================
+
+The current data format is strongly driven by the OGIP format. While convenient for portability
+and inclusion of OGIP type datasets in gammapy, this introduces a strong discrepancy with `Map`
+based analysis and the multiplication of data formats and analysis functions and classes. While
+we can/should still support the IO with OGIP type spectra, we can try to rely more on data formats
+used in the other parts of data reduction and provide `from_OGIP` and `to_OGIP` methods. This will
+reduce significantly code by relying more on core data reduction functions. It will also provide
+an easier adaption to the `Dataset` formalism used in the modeling/fitting part of gammapy.
+
+Counts spectra
+--------------
+
+Counts spectra are represented by `~gammapy.spectrum.CountsSpectrum` and `~gammapy.spectrum.PHACountsSpectrum`.
+The former is a `~gammapy.utils.NDDataArray` with a `~gammapy.utils.BinnedDataAxis` for the energy.
+The latter inherits from the `~gammapy.spectrum.CountsSpectrum` and adds a number of properties:
+`backscal`, `quality`, `areascal`, `livetime`. This is mostly designed for OGIP spectra
+(namely type I OGIP spectrum: 1 file - 1 observation)
+
+In addition there is a `~gammapy.spectrum.PHACountsSpectrumList` inheriting from `list` which represents
+an ensemble of PHA spectra in the form of a type II OGIP file.
+See https://heasarc.gsfc.nasa.gov/docs/heasarc/ofwg/docs/spectra/ogip_92_007/node8.html
+This has the advantage of having only one OGIP file for a large number of observations.
+
+Reduced IRFs
+------------
+
+The `~gammapy.irf.EffectiveAreaTable` is used to represent the energy dependent effective area
+at a given position in the FoV. Currently it is directly extracted from the `~gammapy.irf.EffectiveAreaTable2D`
+at a specific offset value. The possible extension or morphology of the source to be tested is not taken
+into account.  In the case of point source analysis, a function `apply_containment_fraction`is defined
+in spectrum/irf_reduce.py to correct for leakage.
+
+Taking into account the `livetime` provides the exposure.
+
+The energy dispersion matrix is stored in `~gammapy.irf.EnergyDispersion`. This class stores
+the partial integrals used to convolve a true energy spectrum to a reco energy one. It is therefore
+rather a kernel function than an IRF. This kernel is also used for the `Map` analsys and its ussage
+is widespread in gammapy. This comes at the cost of the absence of a real 1D energy dispersion,
+which would store, for a set of true energies E_t, the pdf(E_r/E_t | E_t)  as a function of the migration
+defined as the ratio m=E_r/E_t.
+
+No specific format currently exists to store 1D background count rate from the ON region. No simple function
+exists to project from a `~gammapy.irf.background3D` to a 1D background.
+
+Spectrum observations
+---------------------
+
+
+Proposed evolutions
+===================
+
+We propose to move to a formalism following the `Map` structure with a `RegionMap` with is basically
+a `Map` with a single spatial bin. This would allow to reuse functions to create exposure and background maps.
+
+A dedicated energy MapAxis
+--------------------------
+
+A first convenient step would be to introduce a dedicated `MapAxis` for energy manipulation. This would
+allow to get rid of a number of utility functions and classes such as `~gammapy.utils.EnergyBounds` and
+would have a general usage along all type of gammapy analysis.
+
+A possible implementation:
+```
+class EnergyAxis(MapAxis):
+    """A specialized MApAxis for energy
+
+    This can be used both for true or reco energy.
+
+    Parameters
+    ----------
+    nodes : `~astropy.units.Quantity`
+        a vector of energies
+    interp : str, `lin`or `log`
+        the interpolation mode, default 'log'
+    node_edges : str
+        type of axis: 'edges' or 'center'
+    is_e_true : bool
+        true energy axis if True, reco energy otherwise , Default False
+    """
+    def __init__(self, nodes, interp="log", node_type="edges", is_e_true = False):
+        # Check that unit is homogeneous to energy
+        unit = nodes.unit
+        nodes = nodes.value
+
+        super().__init__(nodes=nodes, interp=interp, name="energy",
+                       node_type=node_type, unit=unit)
+
+        if is_e_true == True:
+            self.e_true = True
+        else:
+            self.e_true = False
+
+    @property
+    def energy_lo(self):
+        return self.edges[:-1]
+
+    @property
+    def energy_hi(self):
+        return self.edges[1:]
+
+```

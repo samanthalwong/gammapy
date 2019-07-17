@@ -597,7 +597,7 @@ class IrfMapMaker:
 
         if self.rad_axis is not None:
             if not isinstance(obs.psf, PSF3D):
-                psf = obs.psf.to_psf3d(self.rad_axis.edges*self.rad_axis.unit)
+                psf = obs.psf.to_psf3d(self.rad_axis.edges)
             else:
                 psf = obs.psf
 

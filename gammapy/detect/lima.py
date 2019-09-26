@@ -2,14 +2,24 @@
 import copy
 import logging
 import numpy as np
+from astropy.convolution import Tophat2DKernel
+from astropy.coordinates import Angle
 from gammapy.stats import significance, significance_on_off
 
 __all__ = ["compute_lima_image", "compute_lima_on_off_image"]
 
 log = logging.getLogger(__name__)
 
+def _setup_kernel(radius, geom):
+    radius = Angle(radius).to_value("deg")
+    scale = geom.pixel_scales[0].to_value("deg")
 
-def compute_lima_image(counts, background, kernel):
+    kernel = Tophat2DKernel(radius/scale)
+    kernel.normalize("peak")
+
+    return kernel
+
+def compute_lima_image(counts, background, radius="0.1 deg"):
     """Compute Li & Ma significance and flux images for known background.
 
     Parameters
@@ -18,8 +28,8 @@ def compute_lima_image(counts, background, kernel):
         Counts image
     background : `~gammapy.maps.WcsNDMap`
         Background image
-    kernel : `astropy.convolution.Kernel2D`
-        Convolution kernel
+    radius : `astropy.coordinates.Angle`
+        Correlation radius. Default 0.1 deg.
 
     Returns
     -------
@@ -31,9 +41,7 @@ def compute_lima_image(counts, background, kernel):
     --------
     gammapy.stats.significance
     """
-    # Kernel is modified later make a copy here
-    kernel = copy.deepcopy(kernel)
-    kernel.normalize("peak")
+    kernel = _setup_kernel(radius, counts.geom)
 
     # fft convolution adds numerical noise, to ensure integer results we call
     # np.rint
@@ -50,7 +58,7 @@ def compute_lima_image(counts, background, kernel):
     }
 
 
-def compute_lima_on_off_image(n_on, n_off, a_on, a_off, kernel):
+def compute_lima_on_off_image(n_on, n_off, a_on, a_off, radius="0.1 deg"):
     """Compute Li & Ma significance and flux images for on-off observations.
 
     Parameters
@@ -63,8 +71,8 @@ def compute_lima_on_off_image(n_on, n_off, a_on, a_off, kernel):
         Relative background efficiency in the on region
     a_off : `~gammapy.maps.WcsNDMap`
         Relative background efficiency in the off region
-    kernel : `astropy.convolution.Kernel2D`
-        Convolution kernel
+    radius : `astropy.coordinates.Angle`
+        Correlation radius. Default 0.1 deg.
 
     Returns
     -------
@@ -76,9 +84,7 @@ def compute_lima_on_off_image(n_on, n_off, a_on, a_off, kernel):
     --------
     gammapy.stats.significance_on_off
     """
-    # Kernel is modified later make a copy here
-    kernel = copy.deepcopy(kernel)
-    kernel.normalize("peak")
+    kernel = _setup_kernel(radius, n_on.geom)
 
     # fft convolution adds numerical noise, to ensure integer results we call
     # np.rint

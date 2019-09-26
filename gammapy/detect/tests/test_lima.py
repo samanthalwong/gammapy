@@ -15,8 +15,7 @@ def test_compute_lima_image():
     counts = Map.read(filename, hdu="counts")
     background = Map.read(filename, hdu="background")
 
-    kernel = Tophat2DKernel(5)
-    result_lima = compute_lima_image(counts, background, kernel)
+    result_lima = compute_lima_image(counts, background, "0.1 deg")
 
     assert_allclose(result_lima["significance"].data[100, 100], 30.814916, atol=1e-3)
     assert_allclose(result_lima["significance"].data[1, 1], 0.164, atol=1e-3)
@@ -35,7 +34,7 @@ def test_compute_lima_on_off_image():
     significance = Map.read(filename, hdu="SIGNIFICANCE")
 
     kernel = Tophat2DKernel(5)
-    results = compute_lima_on_off_image(n_on, n_off, a_on, a_off, kernel)
+    results = compute_lima_on_off_image(n_on, n_off, a_on, a_off, "0.1 deg")
 
     # Reproduce safe significance threshold from HESS software
     results["significance"].data[results["n_on"].data < 5] = 0

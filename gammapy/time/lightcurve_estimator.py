@@ -133,9 +133,15 @@ class LightCurveEstimator:
 
         rows = []
         for dataset in self.datasets.datasets:
+            if dataset.gti is not None:
+                time_min = dataset.gti.time_start[0].mjd
+                time_max = dataset.gti.time_stop[-1].mjd
+            else:
+                time_min = dataset.counts.meta["t_start"].mjd
+                time_max = dataset.counts.meta["t_stop"].mjd
             row = {
-                "time_min": dataset.counts.meta["t_start"].mjd,
-                "time_max": dataset.counts.meta["t_stop"].mjd,
+                "time_min": time_min,
+                "time_max": time_max,
             }
             row.update(self.estimate_time_bin_flux(dataset, steps))
             rows.append(row)

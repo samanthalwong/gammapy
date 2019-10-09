@@ -45,6 +45,8 @@ class SpectrumDataset(Dataset):
         Dataset name.
     gti : `~gammapy.data.GTI`
         GTI of the observation or union of GTI if it is a stacked observation
+    on_region : `~regions.SkyRegion`
+        the ON region used to produce the dataset.
 
     See Also
     --------
@@ -65,6 +67,7 @@ class SpectrumDataset(Dataset):
         mask_fit=None,
         name="",
         gti=None,
+        on_region=None,
     ):
         if mask_fit is not None and mask_fit.dtype != np.dtype("bool"):
             raise ValueError("mask data must have dtype bool")
@@ -83,6 +86,7 @@ class SpectrumDataset(Dataset):
         self.mask_safe = mask_safe
         self.name = name
         self.gti = gti
+        self.on_region = on_region
 
     def __str__(self):
         str_ = self.__class__.__name__
@@ -366,7 +370,7 @@ class SpectrumDataset(Dataset):
         return ax
 
     @classmethod
-    def create(cls, e_reco, e_true=None, reference_time="2000-01-01"):
+    def create(cls, e_reco, e_true=None, reference_time="2000-01-01", on_region=None):
         """Creates empty SpectrumDataset
 
         Empty containers are created with the correct geometry.
@@ -382,6 +386,8 @@ class SpectrumDataset(Dataset):
             edges of effective area table. If not set use reco energy values. Default : None
         reference_time : `~astropy.time.Time`
             reference time of the dataset, Default is "2000-01-01"
+        on_region : `~regions.SkyRegion`
+            the ON region used to extract the dataset. Default is None.
         """
         if e_true is None:
             e_true = e_reco
@@ -404,6 +410,7 @@ class SpectrumDataset(Dataset):
             background=background,
             livetime=livetime,
             gti=gti,
+            on_region=on_region,
         )
 
     def stack(self, other):
@@ -446,6 +453,7 @@ class SpectrumDataset(Dataset):
         other : `~gammapy.spectrum.SpectrumDataset`
             the dataset to stack to the current one
         """
+        # TODO: check that on regions are consistent? no == operator exists for regions though.
         if not isinstance(other, SpectrumDataset):
             raise TypeError("Incompatible types for SpectrumDataset stacking")
 
@@ -518,6 +526,10 @@ class SpectrumDatasetOnOff(SpectrumDataset):
         Name of the dataset.
     gti : `~gammapy.data.GTI`
         GTI of the observation or union of GTI if it is a stacked observation
+    on_region : `~regions.SkyRegion`
+        the ON region used to produce the dataset counts.
+    off_regions : list of `~regions.SkyRegion`
+        the list of OFF regions used to produce the dataset OFF counts.
 
     See Also
     --------
@@ -540,6 +552,8 @@ class SpectrumDatasetOnOff(SpectrumDataset):
         acceptance_off=None,
         name="",
         gti=None,
+        on_region=None,
+        off_regions=None,
     ):
 
         self.counts = counts
@@ -565,6 +579,9 @@ class SpectrumDatasetOnOff(SpectrumDataset):
         self.acceptance_off = acceptance_off
         self.name = name
         self.gti = gti
+        # TODO: technically acceptance_on and off could be deduced from the regions
+        self.on_region = on_region
+        self.off_regions = off_regions
 
     def __str__(self):
         str_ = super().__str__()
@@ -634,7 +651,7 @@ class SpectrumDatasetOnOff(SpectrumDataset):
         self.counts_off = npred_off
 
     @classmethod
-    def create(cls, e_reco, e_true=None, reference_time="2000-01-01"):
+    def create(cls, e_reco, e_true=None, reference_time="2000-01-01", on_region=None):
         """Create empty SpectrumDatasetOnOff.
 
         Empty containers are created with the correct geometry.
@@ -650,6 +667,9 @@ class SpectrumDatasetOnOff(SpectrumDataset):
             edges of effective area table. If not set use reco energy values. Default : None
         reference_time : `~astropy.time.Time`
             reference time of the dataset, Default is "2000-01-01"
+        on_region : `~regions.SkyRegion`
+            the ON region used to extract the dataset. Default is None.
+
         """
         if e_true is None:
             e_true = e_reco
@@ -676,6 +696,7 @@ class SpectrumDatasetOnOff(SpectrumDataset):
             acceptance_off=acceptance_off,
             livetime=livetime,
             gti=gti,
+            on_region=on_region,
         )
 
     @classmethod

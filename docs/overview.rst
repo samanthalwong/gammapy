@@ -88,6 +88,10 @@ dispersion, background) and extra information concerning the observation
 (pointing direction, time), as well as two index tables that list the
 observations and declare which response should be used with which event data.
 
+.. gp-image:: general/data_flow_gammapy.png
+    :width: 100%
+
+
 The main classes in Gammapy to access that DL3 data are the
 `~gammapy.data.DataStore`, `~gammapy.data.DataStoreObservation`,
 `~gammapy.data.Observations`, `~gammapy.data.EventList` and various other

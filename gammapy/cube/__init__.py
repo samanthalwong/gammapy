@@ -10,3 +10,4 @@ from .psf_kernel import *
 from .psf_map import *
 from .ring import *
 from .simulate import *
+from .stat_estimator import *

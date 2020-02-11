@@ -30,6 +30,7 @@ class TestSpectrumDataset:
         assert_allclose(significance, 1.52242115)
         assert_allclose(significance_mask, 0.87897026)
 
+
 class TestSpectrumDatasetOnOff:
     def setup(self):
         e_reco = MapAxis.from_energy_bounds(1.,10.,3, unit='TeV')

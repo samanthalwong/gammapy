@@ -252,9 +252,15 @@ class SpectrumDataset(Dataset):
 
         return npred
 
-    def stat_array(self):
-        """Likelihood per bin given the current model parameters"""
-        return cash(n_on=self.counts.data, mu_on=self.npred().data)
+    def stat_array(self, npred=None):
+        """Likelihood per bin given the current model parameters.
+
+        If npred is passed, the cash statistic is computed for this specific npred independently of the model stored.
+        """
+
+        if npred is None:
+            npred = self.npred().data
+        return cash(n_on=self.counts.data, mu_on=npred)
 
     def _as_counts_spectrum(self, data):
         energy = self._energy_axis.edges
@@ -715,8 +721,10 @@ class SpectrumDatasetOnOff(SpectrumDataset):
         """Exposure ratio between signal and background regions"""
         return self.acceptance / self.acceptance_off
 
-    def stat_array(self):
-        """Likelihood per bin given the current model parameters"""
+    def stat_array(self, npred=None):
+        """Likelihood per bin given the current model parameters.
+
+        If npred is passed, wstat is computed for this specific npred, independently of the model."""
         mu_sig = self.npred_sig().data
         on_stat_ = wstat(
             n_on=self.counts.data,

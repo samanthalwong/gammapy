@@ -3,6 +3,7 @@ from pathlib import Path
 import numpy as np
 from astropy import units as u
 from astropy.io import fits
+from astropy.utils import classproperty
 from astropy.table import Table
 from gammapy.data import GTI
 from gammapy.irf import EDispKernel, EffectiveAreaTable, IRFStacker
@@ -171,6 +172,10 @@ class SpectrumDataset(Dataset):
 
         return str_.expandtabs(tabsize=2)
 
+    @classproperty
+    def stat_function(self):
+        return cash
+
     @property
     def models(self):
         """Models (`gammapy.modeling.models.Models`)."""
@@ -258,7 +263,6 @@ class SpectrumDataset(Dataset):
         If the expected number of counts, mu_sig, is passed, the cash statistic is computed
         for this specific mu_sig independently of the model stored.
         """
-
         if mu_sig is None:
             npred = self.npred().data
         else:
@@ -723,6 +727,10 @@ class SpectrumDatasetOnOff(SpectrumDataset):
     def alpha(self):
         """Exposure ratio between signal and background regions"""
         return self.acceptance / self.acceptance_off
+
+    @classproperty
+    def stat_function(self):
+        return wstat
 
     def stat_array(self, mu_sig=None):
         """Likelihood per bin given the current model parameters.

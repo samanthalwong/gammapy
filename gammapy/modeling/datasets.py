@@ -50,9 +50,9 @@ class Dataset(abc.ABC):
             mask = None
         return mask
 
-    def stat_sum(self):
+    def stat_sum(self, mu_sig=None):
         """Total statistic given the current model parameters."""
-        stat = self.stat_array()
+        stat = self.stat_array(mu_sig)
 
         if self.mask is not None:
             stat = stat[self.mask]

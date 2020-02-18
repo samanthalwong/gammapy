@@ -6,6 +6,7 @@ from .exposure import *
 from .fit import *
 from .fov import *
 from .make import *
+from .model_estimator import *
 from .psf_kernel import *
 from .psf_map import *
 from .ring import *

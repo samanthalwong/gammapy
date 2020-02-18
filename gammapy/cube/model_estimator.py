@@ -1,6 +1,7 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 import logging
 import numpy as np
+from itertools import combinations
 import astropy.units as u
 from gammapy.modeling import Fit, Datasets
 
@@ -65,7 +66,7 @@ class ModelEstimator:
             if par not in model.parameters:
                 par.frozen = True
 
-    def _compute_scan_range(self, value, value_error, par_min, par_max):
+    def _compute_scan_values(self, value, value_error, par_min, par_max):
         """Define parameter value range to be scanned"""
         min_range = value - self.scan_n_err * value_error
         if not np.isnan(par_min):
@@ -115,8 +116,8 @@ class ModelEstimator:
         for par in params:
             result = {"value": par.value}
             result.update({"error": self.fit_result.parameters.error(par)})
-            print(self.estimate_parameter(par, steps))
-
+            #print(self.estimate_parameter(par, steps))
+            print(result)
         return result
 
     def estimate_best_fit(self):
@@ -177,7 +178,6 @@ class ModelEstimator:
         """
         self.estimate_best_fit()
         value_err = self.fit_result.parameters.error(parameter)
-        print(parameter)
         result = {}
         if "errp-errn" in steps:
             res = self.fit.confidence(parameter=parameter.name, sigma=self.sigma)

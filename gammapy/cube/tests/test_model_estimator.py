@@ -22,5 +22,7 @@ def test_model_estimator_simple():
 
     result = estimator.run(datasets, PLmodel, steps=["errp-errn"])
 
-    assert_allclose(result['index']['value'],2.816898113390892)
-    assert 1==0
+    assert_allclose(dataset.models[0].parameters['index'].value, 2.816696962376779)
+    assert_allclose(dataset.models[0].parameters.error('index'), 0.14957562779580705)
+    assert_allclose(dataset.models[0].parameters['amplitude'].value, 5.142843823441639e-11)
+    assert_allclose(dataset.models[0].parameters.error('amplitude'), 6.42467002840316e-12)

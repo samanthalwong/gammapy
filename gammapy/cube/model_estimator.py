@@ -77,7 +77,7 @@ class ModelEstimator:
 
         return np.linspace(min_range, max_range, self.n_scan_values)
 
-    def run(self, datasets, model, steps="all"):
+    def run(self, datasets, model, steps=None):
         """Run the model estimator.
 
         Parameters
@@ -86,21 +86,21 @@ class ModelEstimator:
             Input datasets.
         model : `~gammapy.modeling.SkyModel`
             The model to estimate
-        steps : list of str
+        steps : list of str or None
             Which steps to execute. Available options are:
 
                 * "errn-errp": estimate asymmetric errors.
                 * "ul": estimate upper limits.
                 * "stat_profile": estimate fit statistic profiles.
 
-            By default all steps are executed.
+            By default nore are executed.
 
         Returns
         -------
         result : `~astropy.table.Table`
             Estimated flux and errors.
         """
-        datasets = self._check_datasets(datasets)
+        self.datasets = self._check_datasets(datasets)
 
         if steps == "all":
             steps = ["errp-errn", "ul", "stat_profile"]
@@ -113,11 +113,13 @@ class ModelEstimator:
 
         params = [_ for _ in model.parameters if _.frozen is False]
 
+        result = {}
         for par in params:
-            result = {"value": par.value}
-            result.update({"error": self.fit_result.parameters.error(par)})
-            #print(self.estimate_parameter(par, steps))
-            print(result)
+            param_result = {"value": par.value}
+            param_result.update({"error": self.fit_result.parameters.error(par)})
+            if steps:
+                param_result.update(self.estimate_parameter(par, steps))
+            result.update({par.name : param_result})
         return result
 
     def estimate_best_fit(self):
@@ -157,7 +159,7 @@ class ModelEstimator:
                 raise ValueError("Cannot find parameter for TS estimation.")
             parameter = self.fit_result.parameters[index]
 
-        with datasets.parameters.restore_values:
+        with self.datasets.parameters.restore_values:
             parameter.value = null_value
             parameter.frozen = True
             result = self.fit.optimize()
@@ -179,6 +181,10 @@ class ModelEstimator:
         self.estimate_best_fit()
         value_err = self.fit_result.parameters.error(parameter)
         result = {}
+
+        if steps == "all":
+            steps = ["errp-errn", "ul", "stat_profile"]
+
         if "errp-errn" in steps:
             res = self.fit.confidence(parameter=parameter.name, sigma=self.sigma)
             result.update({"errp": res["errp"], "errn": res["errn"]})
@@ -211,12 +217,13 @@ class ModelEstimator:
         """Make contours."""
         if parameters == "all":
             parameters = [_ for _ in self.fit_result.parameters if _.frozen is False]
-        else:
-            parameters = [self.fit_result.parameters[name] for name in parameters]
+#        else:
+#            parameters = [self.fit_result.parameters[name] for name in parameters]
 
         results = {}
         for param1, param2 in combinations(parameters, r=2):
             name = f"{param1.name}_{param2.name}"
+            print(param1)
             res = self.fit.minos_contour(param1, param2, npoints, sigma)
             par1_contour = u.Quantity(res['x'], param1.unit)
             par2_contour = u.Quantity(res['y'], param2.unit)

@@ -31,6 +31,7 @@ class ModelEstimator:
 
     def __init__(
             self,
+            datasets,
             sigma=1,
             sigma_ul=2,
             reoptimize=True,
@@ -42,6 +43,8 @@ class ModelEstimator:
         self.reoptimize = reoptimize
         self.n_scan_values = n_scan_values
         self.scan_n_err = scan_n_err
+
+        self.datasets = self._check_datasets(datasets)
 
     def __str__(self):
         s = f"{self.__class__.__name__}:\n"
@@ -77,7 +80,7 @@ class ModelEstimator:
 
         return np.linspace(min_range, max_range, self.n_scan_values)
 
-    def run(self, datasets, model, steps=None):
+    def run(self, model, steps=None):
         """Run the model estimator.
 
         Parameters
@@ -100,14 +103,14 @@ class ModelEstimator:
         result : `~astropy.table.Table`
             Estimated flux and errors.
         """
-        self.datasets = self._check_datasets(datasets)
 
         if steps == "all":
             steps = ["errp-errn", "ul", "stat_profile"]
 
-        self.fit = Fit(datasets)
+        self.fit = Fit(self.datasets)
 
         self.fit_result = self.estimate_best_fit()
+        print(self.fit_result.parameters.covariance)
         covar = self.fit_result.parameters.get_subcovariance(model.parameters)
         model.parameters.covariance = covar
 
@@ -131,7 +134,6 @@ class ModelEstimator:
             return result
         self.fit_res = result
         result = self.fit.covariance()
-
         return result
 
     def estimate_ts(self, parameter=None, null_value=0):

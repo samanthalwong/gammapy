@@ -82,6 +82,7 @@ def plot_spectral_butterfly(
         raise ValueError("Run Fit.run() before calling plot_spectral_butterfly")
     covar = fit._parameters.get_subcovariance(model.parameters)
     model.parameters.covariance = covar
+
     model.plot(
         energy_range=energy_range,
         energy_power=energy_power,
@@ -91,6 +92,7 @@ def plot_spectral_butterfly(
         n_points=n_points,
         **kwargs
     )
+
     model.plot_error(
         energy_range=energy_range,
         energy_power=energy_power,

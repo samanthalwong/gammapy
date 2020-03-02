@@ -83,7 +83,7 @@ def plot_spectral_butterfly(
     covar = fit._parameters.get_subcovariance(model.parameters)
     model.parameters.covariance = covar
 
-    model.plot(
+    ax=model.plot(
         energy_range=energy_range,
         energy_power=energy_power,
         energy_unit=energy_unit,
@@ -93,7 +93,7 @@ def plot_spectral_butterfly(
         **kwargs
     )
 
-    model.plot_error(
+    ax=model.plot_error(
         energy_range=energy_range,
         energy_power=energy_power,
         energy_unit=energy_unit,
@@ -102,3 +102,5 @@ def plot_spectral_butterfly(
         n_points=n_points,
         **kwargs
     )
+    return ax
+

@@ -105,34 +105,33 @@ time later for modeling and fitting.
 Datasets
 --------
 
-Datasets in Gammapy contain reduced data, models, and the likelihood function
-fit statistic for a given set of model parameters. All datasets contain a
+Datasets in Gammapy bundle reduced data (namely counts), background and sky models
+and the associated :ref:`_fit-statistics <fit statistic>, a log-likelihood function
+adapted to the type of data.`
+
+The map datasets represent 3D cubes with two spatial and one energy axis.
+For 2D images the same map objects and map datasets are used, an energy axis
+is present but only has one energy bin.
+
+The spectrum datasets represent 1D spectra with an energy axis. There are
+no spatial axes or information, the 1D spectra are obtained for a given
+signal extraction region, or ON region.
+
+
+ . All datasets contain a
 `~gammapy.modeling.models.Models` container with one or more
 `~gammapy.modeling.models.SkyModel` objects that represent additive emission
 components.
 
-To model and fit data in Gammapy, you have to create a
-`~gammapy.modeling.Datasets` container object with one or multiple
-`~gammapy.modeling.Dataset` objects. Gammapy has built-in support to create and
-analyse the following datasets: `~gammapy.cube.MapDataset`,
-`~gammapy.cube.MapDatasetOnOff`, `~gammapy.spectrum.SpectrumDataset`,
-`~gammapy.spectrum.SpectrumDatasetOnOff` and
-`~gammapy.spectrum.FluxPointsDataset`.
 
-The map datasets represent 3D cubes (`~gammapy.maps.WcsNDMap` objects) with two
-spatial and one energy axis. For 2D images the same map objects and map datasets
-are used, an energy axis is present but only has one energy bin. The
-`~gammapy.cube.MapDataset` contains a counzts map, background is modeled with a
+`~gammapy.cube.MapDataset` contains a counts map, background is modeled with a
 `~gammapy.modeling.models.BackgroundModel`, and the fit statistic used is
 ``cash``. The `~gammapy.cube.MapDatasetOnOff` contains on and off count maps,
 background is implicitly modeled via the off counts map, and the ``wstat`` fit
 statistic.
 
-The spectrum datasets represent 1D spectra (`~gammapy.spectrum.CountsSpectrum`
-objects) with an energy axis. There are no spatial axes or information, the 1D
-spectra are obtained for a given on region. The
-`~gammapy.spectrum.SpectrumDataset` contains a counts spectrum, background is
-modeled with a `~gammapy.spectrum.CountsSpectrum`, and the fit statistic used is
+
+
 ``cash``. The `~gammapy.spectrum.SpectrumDatasetOnOff` contains on on and off
 count spectra, background is implicitly modeled via the off counts spectrum, and
 the ``wstat`` fit statistic. The `~gammapy.spectrum.FluxPointsDataset` contains

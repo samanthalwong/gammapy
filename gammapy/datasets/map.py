@@ -64,6 +64,8 @@ class MapDataset(Dataset):
         Mask defining the safe data range.
     gti : `~gammapy.data.GTI`
         GTI of the observation or union of GTI if it is a stacked observation
+    meta : dict
+        meta information for the dataset.
     """
 
     stat_type = "cash"
@@ -81,6 +83,7 @@ class MapDataset(Dataset):
         evaluation_mode="local",
         mask_safe=None,
         gti=None,
+        meta=None,
     ):
         if mask_fit is not None and mask_fit.data.dtype != np.dtype("bool"):
             raise ValueError("mask data must have dtype bool")
@@ -99,7 +102,7 @@ class MapDataset(Dataset):
         self.mask_safe = mask_safe
         self.models = models
         self.gti = gti
-
+        self.meta = None
         # check whether a reference geom is defined
         _ = self._geom
 
@@ -806,7 +809,7 @@ class MapDataset(Dataset):
         """
         from .spectrum import SpectrumDataset
 
-        kwargs = {"gti": self.gti, "name": name}
+        kwargs = {"gti": self.gti, "name": name, "meta": self.meta}
 
         if self.gti is not None:
             kwargs["livetime"] = self.gti.time_sum
@@ -883,6 +886,7 @@ class MapDataset(Dataset):
         kwargs = {}
         kwargs["name"] = name
         kwargs["gti"] = self.gti
+        kwargs["meta"] = self.meta
 
         if self.mask_safe is not None:
             mask_safe = self.mask_safe
@@ -935,7 +939,7 @@ class MapDataset(Dataset):
             Cutout map dataset.
         """
         name = make_name(name)
-        kwargs = {"gti": self.gti, "name": name}
+        kwargs = {"gti": self.gti, "name": name, "meta": self.meta}
         cutout_kwargs = {"position": position, "width": width, "mode": mode}
 
         if self.counts is not None:
@@ -1001,6 +1005,8 @@ class MapDatasetOnOff(MapDataset):
         GTI of the observation or union of GTI if it is a stacked observation
     name : str
         Name of the dataset.
+    meta : dict
+        meta information for the dataset.
 
     """
 
@@ -1023,6 +1029,7 @@ class MapDatasetOnOff(MapDataset):
         evaluation_mode="local",
         mask_safe=None,
         gti=None,
+        meta=None,
     ):
         if mask_fit is not None and mask_fit.dtype != np.dtype("bool"):
             raise ValueError("mask data must have dtype bool")
@@ -1048,6 +1055,7 @@ class MapDatasetOnOff(MapDataset):
         self._name = make_name(name)
         self.mask_safe = mask_safe
         self.gti = gti
+        self.meta = meta
 
     def __str__(self):
         str_ = super().__str__()
@@ -1185,6 +1193,7 @@ class MapDatasetOnOff(MapDataset):
             Map dataset on off.
 
         """
+        # TODO : why is kwargs not used?
         kwargs = {"name": name}
 
         if counts_off is None and dataset.background_model is not None:
@@ -1203,6 +1212,7 @@ class MapDatasetOnOff(MapDataset):
             acceptance_off=acceptance_off,
             name=dataset.name,
             evaluation_mode=dataset.evaluation_mode,
+            meta=dataset.meta,
         )
 
     @property

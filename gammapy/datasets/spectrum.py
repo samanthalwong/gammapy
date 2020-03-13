@@ -50,6 +50,8 @@ class SpectrumDataset(Dataset):
         Dataset name.
     gti : `~gammapy.data.GTI`
         GTI of the observation or union of GTI if it is a stacked observation
+    meta : dict
+        meta information for the dataset.
 
     See Also
     --------
@@ -71,6 +73,7 @@ class SpectrumDataset(Dataset):
         mask_fit=None,
         name=None,
         gti=None,
+        meta=None,
     ):
 
         if mask_fit is not None and mask_fit.dtype != np.dtype("bool"):
@@ -88,6 +91,7 @@ class SpectrumDataset(Dataset):
         self.background = background
         self.mask_safe = mask_safe
         self.gti = gti
+        self.meta = meta
 
         self._name = make_name(name)
         self.models = models
@@ -431,7 +435,7 @@ class SpectrumDataset(Dataset):
 
     @classmethod
     def create(
-        cls, e_reco, e_true=None, region=None, reference_time="2000-01-01", name=None
+        cls, e_reco, e_true=None, region=None, reference_time="2000-01-01", name=None, **kwargs
     ):
         """Creates empty spectrum dataset.
 
@@ -479,6 +483,7 @@ class SpectrumDataset(Dataset):
             livetime=livetime,
             gti=gti,
             name=name,
+            **kwargs,
         )
 
     def stack(self, other):
@@ -666,6 +671,8 @@ class SpectrumDatasetOnOff(SpectrumDataset):
         Name of the dataset.
     gti : `~gammapy.data.GTI`
         GTI of the observation or union of GTI if it is a stacked observation
+    meta : dict
+        meta information for the dataset.
 
     See Also
     --------
@@ -689,6 +696,7 @@ class SpectrumDatasetOnOff(SpectrumDataset):
         acceptance_off=None,
         name=None,
         gti=None,
+        meta=None,
     ):
 
         self.counts = counts
@@ -718,6 +726,7 @@ class SpectrumDatasetOnOff(SpectrumDataset):
         self._evaluators = {}
         self._name = make_name(name)
         self.gti = gti
+        self.meta = meta
         self.models = models
 
     def __str__(self):
@@ -800,7 +809,7 @@ class SpectrumDatasetOnOff(SpectrumDataset):
 
     @classmethod
     def create(
-        cls, e_reco, e_true=None, region=None, reference_time="2000-01-01", name=None
+        cls, e_reco, e_true=None, region=None, reference_time="2000-01-01", name=None, **kwargs
     ):
         """Create empty SpectrumDatasetOnOff.
 
@@ -826,6 +835,7 @@ class SpectrumDatasetOnOff(SpectrumDataset):
             region=region,
             reference_time=reference_time,
             name=name,
+            **kwargs
         )
 
         counts_off = dataset.counts.copy()
@@ -1290,4 +1300,5 @@ class SpectrumDatasetOnOff(SpectrumDataset):
             acceptance_off=acceptance_off,
             gti=dataset.gti,
             name=dataset.name,
+            meta=dataset.meta,
         )

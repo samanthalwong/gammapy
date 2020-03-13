@@ -102,7 +102,7 @@ class MapDataset(Dataset):
         self.mask_safe = mask_safe
         self.models = models
         self.gti = gti
-        self.meta = None
+        self.meta = meta
         # check whether a reference geom is defined
         _ = self._geom
 
@@ -609,6 +609,8 @@ class MapDataset(Dataset):
         hdulist = fits.HDUList([hdu_primary])
         if self.counts is not None:
             hdulist += self.counts.to_hdulist(hdu="counts")[exclude_primary]
+            if self.meta is not None:
+                hdulist["counts"].header.update(self.meta)
 
         if self.exposure is not None:
             hdulist += self.exposure.to_hdulist(hdu="exposure")[exclude_primary]
@@ -678,6 +680,7 @@ class MapDataset(Dataset):
 
         if "COUNTS" in hdulist:
             kwargs["counts"] = Map.from_hdulist(hdulist, hdu="counts")
+            kwargs["meta"] = hdulist["counts"].header
 
         if "EXPOSURE" in hdulist:
             exposure = Map.from_hdulist(hdulist, hdu="exposure")
@@ -1335,6 +1338,7 @@ class MapDatasetOnOff(MapDataset):
         kwargs["name"] = name
         if "COUNTS" in hdulist:
             kwargs["counts"] = Map.from_hdulist(hdulist, hdu="counts")
+            kwargs["meta"] = hdulist["counts"].header
 
         if "COUNTS_OFF" in hdulist:
             kwargs["counts_off"] = Map.from_hdulist(hdulist, hdu="counts_off")

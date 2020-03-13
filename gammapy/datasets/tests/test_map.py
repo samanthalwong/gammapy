@@ -182,7 +182,8 @@ def test_different_exposure_unit(sky_model, geom):
 
 @requires_data()
 def test_to_spectrum_dataset(sky_model, geom, geom_etrue):
-    dataset_ref = get_map_dataset(sky_model, geom, geom_etrue, edisp=True)
+    meta = {"entry_1": 0., "entry_2": "string"}
+    dataset_ref = get_map_dataset(sky_model, geom, geom_etrue, edisp=True, meta=meta)
 
     dataset_ref.counts = dataset_ref.background_model.map * 0.0
     dataset_ref.counts.data[1, 50, 50] = 1
@@ -208,6 +209,8 @@ def test_to_spectrum_dataset(sky_model, geom, geom_etrue):
     assert_allclose(
         spectrum_dataset_corrected.aeff.data.data.value[1], 559476.3357, rtol=1e-5
     )
+    assert spectrum_dataset.meta["entry_1"] == 0
+    assert spectrum_dataset.meta["entry_2"] == "string"
 
 
 @requires_data()
@@ -223,13 +226,17 @@ def test_to_image(geom):
         "$GAMMAPY_DATA/fermi-3fhl-gc/fermi-3fhl-gc-exposure-cube.fits.gz"
     )
     exposure = exposure.sum_over_axes(keepdims=True)
+
+    meta = {"entry_1": 0.}
+
     dataset = MapDataset(
-        counts=counts, models=[background], exposure=exposure, name="fermi"
+        counts=counts, models=[background], exposure=exposure, name="fermi", meta=meta
     )
     dataset_im = dataset.to_image()
     assert dataset_im.mask_safe is None
     assert dataset_im.counts.data.sum() == dataset.counts.data.sum()
     assert_allclose(dataset_im.background_model.map.data.sum(), 28548.625, rtol=1e-5)
+    assert dataset_im.meta["entry_1"] == 0
 
     ebounds = np.logspace(-1.0, 1.0, 3)
     axis = MapAxis.from_edges(ebounds, name="energy", unit=u.TeV, interp="log")
@@ -261,10 +268,10 @@ def test_to_image(geom):
     dataset_im = dataset_copy.to_image()
     assert dataset_im.counts is None
 
-
 @requires_data()
 def test_map_dataset_fits_io(tmp_path, sky_model, geom, geom_etrue):
-    dataset = get_map_dataset(sky_model, geom, geom_etrue)
+    meta = {"entry_1": 0., "entry_2": "string"}
+    dataset = get_map_dataset(sky_model, geom, geom_etrue, meta=meta)
     dataset.counts = dataset.npred()
     dataset.mask_safe = dataset.mask_fit
     gti = GTI.create([0 * u.s], [1 * u.h], reference_time="2010-01-01T00:00:00")
@@ -322,6 +329,9 @@ def test_map_dataset_fits_io(tmp_path, sky_model, geom, geom_etrue):
     assert_allclose(
         dataset.gti.time_sum.to_value("s"), dataset_new.gti.time_sum.to_value("s")
     )
+    assert dataset.meta["entry_1"] == 0
+    assert dataset.meta["entry_2"] == "string"
+    assert len(dataset.meta.keys()) == 2
 
     # To test io of psf and edisp map
     stacked = MapDataset.create(geom)
@@ -547,7 +557,8 @@ def get_map_dataset_onoff(images, **kwargs):
 
 @requires_data()
 def test_map_dataset_onoff_fits_io(images, tmp_path):
-    dataset = get_map_dataset_onoff(images)
+    meta = {"entry_1": 0., "entry_2": "string"}
+    dataset = get_map_dataset_onoff(images, meta=meta)
     gti = GTI.create([0 * u.s], [1 * u.h], reference_time="2010-01-01T00:00:00")
     dataset.gti = gti
 
@@ -586,6 +597,9 @@ def test_map_dataset_onoff_fits_io(images, tmp_path):
     assert_allclose(
         dataset.gti.time_sum.to_value("s"), dataset_new.gti.time_sum.to_value("s")
     )
+    assert dataset.meta["entry_1"] == 0
+    assert dataset.meta["entry_2"] == "string"
+    assert len(dataset.meta.keys()) == 2
 
 
 def test_create_onoff(geom, geom_etrue):
@@ -684,7 +698,8 @@ def test_mapdatasetonoff_to_spectrum_dataset(images):
         new_images[key] = Map.from_geom(
             image.geom.to_cube([e_reco]), data=image.data[np.newaxis, :, :]
         )
-    dataset = get_map_dataset_onoff(new_images)
+    meta = {"entry": 0}
+    dataset = get_map_dataset_onoff(new_images, meta=meta)
     gti = GTI.create([0 * u.s], [1 * u.h], reference_time="2010-01-01T00:00:00")
     dataset.gti = gti
 
@@ -705,7 +720,7 @@ def test_mapdatasetonoff_to_spectrum_dataset(images):
     assert_allclose(excess, excess_true, atol=1e-6)
 
     assert spectrum_dataset.name != dataset.name
-
+    assert spectrum_dataset.meta["entry"] == 0
 
 @requires_data()
 def test_mapdatasetonoff_cutout(images):

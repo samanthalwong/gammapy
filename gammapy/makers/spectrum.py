@@ -4,6 +4,7 @@ from astropy import units as u
 from regions import CircleSkyRegion
 from gammapy.datasets import SpectrumDataset
 from gammapy.maps import RegionNDMap
+from gammapy.makers.utils import make_dataset_meta
 
 __all__ = ["SpectrumDatasetMaker"]
 
@@ -165,6 +166,8 @@ class SpectrumDatasetMaker:
         energy_axis = dataset.counts.geom.get_axis_by_name("energy")
         energy_axis_true = dataset.aeff.data.axis("energy_true")
         region = dataset.counts.geom.region
+
+        kwargs["meta"] = make_dataset_meta(observation)
 
         if "counts" in self.selection:
             kwargs["counts"] = self.make_counts(dataset.counts.geom, observation)

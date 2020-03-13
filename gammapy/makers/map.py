@@ -1,5 +1,6 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 import logging
+import numpy as np
 from gammapy.datasets import MapDataset
 from gammapy.irf import EnergyDependentMultiGaussPSF
 from gammapy.maps import Map
@@ -9,6 +10,7 @@ from .utils import (
     make_map_background_irf,
     make_map_exposure_true_energy,
     make_psf_map,
+    make_dataset_meta,
 )
 
 __all__ = ["MapDatasetMaker"]
@@ -220,6 +222,8 @@ class MapDatasetMaker:
         mask_safe.data |= True
 
         kwargs["mask_safe"] = mask_safe
+
+        kwargs["meta"] = make_dataset_meta(observation)
 
         if "counts" in self.selection:
             counts = self.make_counts(dataset.counts.geom, observation)

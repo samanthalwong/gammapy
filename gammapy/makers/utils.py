@@ -12,8 +12,20 @@ __all__ = [
     "make_edisp_map",
     "make_psf_map",
     "make_map_exposure_true_energy",
+    "make_dataset_meta"
 ]
 
+default_meta_keys = [
+                "RA_PNT",
+                "DEC_PNT",
+                "RA_OBJ",
+                "DEC_OBJ",
+                "ALT_PNT",
+                "AZ_PNT",
+                "ZEN_PNT",
+                "DEADC",
+                "MUONEFF"
+            ]
 
 def make_map_exposure_true_energy(pointing, livetime, aeff, geom):
     """Compute exposure map.
@@ -256,3 +268,22 @@ def make_edisp_map(edisp, pointing, geom, exposure_map=None):
     data = edisp_values.to_value("")
     edispmap = Map.from_geom(geom, data=data, unit="")
     return EDispMap(edispmap, exposure_map)
+
+def make_dataset_meta(observation, keys=default_meta_keys):
+    """Extract meta information from an observation info.
+
+    Parameters
+    ----------
+    keys : list of str
+        list of key entries to extract from the obs_info
+
+    Returns
+    -------
+    meta : dict
+        the meta dictionary
+    """
+    meta = dict()
+    for key in keys:
+        meta[key] = observation.obs_info.get(key, np.nan)
+    return meta
+

@@ -288,6 +288,8 @@ class TestSpectrumOnOff:
         )
         self.wcs = WcsGeom.create(npix=300, binsz=0.01, frame="icrs").wcs
 
+        self.meta={"entry_1": 0., "entry_2": "str"}
+
         data = np.ones(elo.shape)
         data[-1] = 0  # to test stats calculation with empty bins
 
@@ -322,6 +324,7 @@ class TestSpectrumOnOff:
             acceptance_off=acceptance_off,
             name="test",
             gti=self.gti,
+            meta=self.meta,
         )
 
     def test_spectrumdatasetonoff_create(self):
@@ -402,6 +405,9 @@ class TestSpectrumOnOff:
         assert len(regions) == len(expected_regions)
         assert regions[0].center.is_equivalent_frame(expected_regions[0].center)
         assert_allclose(regions[1].angle, expected_regions[1].angle)
+
+        assert newdataset.meta["entry_2"] == "str"
+        assert newdataset.meta["entry_1"] == 0.
 
     def test_to_from_ogip_files_no_edisp(self, tmp_path):
 

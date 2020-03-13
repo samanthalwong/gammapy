@@ -1017,8 +1017,6 @@ class SpectrumDatasetOnOff(SpectrumDataset):
         counts_table["BACKSCAL"] = self.acceptance.data[:, 0, 0]
         counts_table["AREASCAL"] = np.ones(self.acceptance.data.size)
         meta = self._ogip_meta()
-        if self.meta is not None:
-            meta.update(self.meta)
 
         meta["respfile"] = rmffile
         meta["backfile"] = bkgfile
@@ -1038,6 +1036,9 @@ class SpectrumDatasetOnOff(SpectrumDataset):
             region_table = self.counts.geom._to_region_table()
             region_hdu = fits.BinTableHDU(region_table, name="REGION")
             hdulist.append(region_hdu)
+
+        if self.meta is not None:
+            hdulist[0].header.update(self.meta)
 
         hdulist.writeto(outdir / phafile, overwrite=overwrite)
 
@@ -1138,7 +1139,7 @@ class SpectrumDatasetOnOff(SpectrumDataset):
             )
             mask_safe.data = np.logical_not(mask_safe.data)
 
-            meta = hdulist["SPECTRUM"].header
+            meta = hdulist[0].header
 
         phafile = filename.name
 

@@ -1017,6 +1017,8 @@ class SpectrumDatasetOnOff(SpectrumDataset):
         counts_table["BACKSCAL"] = self.acceptance.data[:, 0, 0]
         counts_table["AREASCAL"] = np.ones(self.acceptance.data.size)
         meta = self._ogip_meta()
+        if self.meta is not None:
+            meta.update(self.meta)
 
         meta["respfile"] = rmffile
         meta["backfile"] = bkgfile
@@ -1136,6 +1138,8 @@ class SpectrumDatasetOnOff(SpectrumDataset):
             )
             mask_safe.data = np.logical_not(mask_safe.data)
 
+            meta = hdulist["SPECTRUM"].header
+
         phafile = filename.name
 
         try:
@@ -1170,6 +1174,7 @@ class SpectrumDatasetOnOff(SpectrumDataset):
             acceptance_off=acceptance_off,
             name=str(counts.meta["OBS_ID"]),
             gti=gti,
+            meta=meta,
         )
 
     def info_dict(self, in_safe_energy_range=True):

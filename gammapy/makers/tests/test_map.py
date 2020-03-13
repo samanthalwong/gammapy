@@ -154,4 +154,4 @@ def test_map_maker_obs(observations):
     assert_allclose(map_dataset.gti.time_delta, 1800.0 * u.s)
     assert map_dataset.meta is not None
     assert len(map_dataset.meta)==9
-    assert_allclose(map_dataset.meta['ZEN_PNT'].value, 0)
+    assert_allclose(map_dataset.meta['ZEN_PNT'], 0)

@@ -209,7 +209,7 @@ class TestSpectrumMakerChain:
         assert_allclose(gti_dataset["STOP"], gti_obs["STOP"])
 
         assert dataset.meta is not None
-        assert_allclose(dataset.meta["RA_PNT"].value, 83.63333)
+        assert_allclose(dataset.meta["RA_PNT"], 83.63333)
 
     def test_compute_energy_threshold(
         self, spectrum_dataset_crab_fine, observations_hess_dl3

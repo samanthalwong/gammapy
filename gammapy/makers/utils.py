@@ -1,5 +1,6 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 import numpy as np
+import astropy.units as u
 from astropy.coordinates import SkyOffsetFrame
 from gammapy.data import FixedPointingInfo
 from gammapy.irf import EDispMap, PSFMap
@@ -284,6 +285,9 @@ def make_dataset_meta(observation, keys=default_meta_keys):
     """
     meta = dict()
     for key in keys:
-        meta[key] = observation.obs_info.get(key, np.nan)
+        info = observation.obs_info.get(key, np.nan)
+        if isinstance(info, u.Quantity):
+            info = info.value
+        meta[key] = info
     return meta
 

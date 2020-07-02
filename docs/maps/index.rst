@@ -11,11 +11,14 @@ maps - Sky maps
 Introduction
 ============
 
-`gammapy.maps` contains classes for representing pixelized data structures with
-at least two spatial dimensions representing coordinates on a sphere (e.g. an
-image in celestial coordinates).  These classes support an arbitrary number of
-non-spatial dimensions and can represent images (2D), cubes (3D), or hypercubes
-(4+D).  Two pixelization schemes are supported:
+`gammapy.maps` contains classes for representing pixelized data structures
+on the sphere with arbitrary number of non-spatial dimensions. These classes
+support data described with at least two spatial dimensions representing coordinates
+on a sphere (e.g. an image in celestial coordinates) and can represent images (2D),
+cubes (2+1D), or hypercubes (2+nD). They also support multi-dimensional data defined in
+simple regions localized on the sphere and can represent spectra (1D) or hyperspectra (1+nD).
+
+Two pixelization schemes are supported:
 
 * WCS : Projection onto a 2D cartesian grid following the conventions
   of the World Coordinate System (WCS).  Pixels are square in projected
@@ -23,15 +26,22 @@ non-spatial dimensions and can represent images (2D), cubes (3D), or hypercubes
 * HEALPix : Hierarchical Equal Area Iso Latitude pixelation of the
   sphere. Pixels are equal area but have irregular shapes.
 
-`gammapy.maps` is organized around two data structures: *geometry* classes
-inheriting from `~Geom` and *map* classes inheriting from `~Map`. A geometry
-defines the map boundaries, pixelization scheme, and provides methods for
-converting to/from map and pixel coordinates. A map owns a `~Geom` instance
-as well as a data array containing map values. Where possible it is recommended
-to use the abstract `~Map` interface for accessing or updating the contents of a
-map as this allows algorithms to be used interchangeably with different map
-representations. The following reviews methods of the abstract map interface.
-Documentation specific to WCS- and HEALPix-based maps is provided in :doc:`hpxmap`.
+`gammapy.maps` is organized around three data structures:
+
+* a class to represent *non-spatial axes*: `~MapAxis` which is used in gammapy
+to contain axes of physical quantities.
+* *geometry* classes which associate non-spatial axes with a description of
+spatial quantities either based on the aforementioned pixelization schemes
+or on `regions` definition. All these classes inherit from `~Geom`.
+A geometry defines the map boundaries, pixelization scheme, and provides methods for
+converting to/from map and pixel coordinates.
+* *map* classes which own a `~Geom` instance as well as a data array
+containing map quantities. All classes inherit from the abstract `~Map` class.
+Using this abstract `~Map` interface for accessing or updating the contents of a
+map allows algorithms to be used interchangeably with different map
+representations.
+
+Documentation specific to HEALPix-based maps is provided in :doc:`hpxmap`.
 
 
 Getting Started

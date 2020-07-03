@@ -91,7 +91,7 @@ The following tutorials expose common analysis tasks.
 
 - `Light curves <light_curve.html>`__ | *light_curve.ipynb*
 - `Light curves for flares <light_curve_flare.html>`__ | *light_curve_flare.ipynb*
-- `Simulating and fiting a time varying source <light_curve_simulation.html>`__ | *light_curve_simulation.ipynb*
+- `Simulating and fitting a time varying source <light_curve_simulation.html>`__ | *light_curve_simulation.ipynb*
 
 *Simulations*
 

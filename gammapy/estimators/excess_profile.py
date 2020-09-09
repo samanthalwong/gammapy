@@ -8,9 +8,71 @@ from gammapy.stats import WStatCountsStatistic, CashCountsStatistic
 from gammapy.datasets import SpectrumDatasetOnOff, Datasets
 from gammapy.maps import MapAxis
 from gammapy.modeling.models import SkyModel, PowerLawSpectralModel
+from gammapy.utils.scripts import make_name
 from .core import Estimator
 
 __all__ = ["ExcessProfileEstimator"]
+
+
+def spectrum_dataset_to_image(dataset, name=None):
+    """Sum over all reco energy and return a SpectrumDataset with only one reco energy bin.
+
+    Parameters
+    ----------
+    name: str
+        Name of the new dataset.
+
+    Returns
+    -------
+    dataset: `SpectrumDataset` or `SpectrumDatasetOnOff`
+        Spectrum dataset containing one bin.
+    """
+    name = make_name(name)
+    kwargs = {}
+    kwargs["name"] = name
+    kwargs["gti"] = dataset.gti
+    kwargs["exposure"] = dataset.exposure
+
+    if dataset.mask_safe is not None:
+        mask_safe = dataset.mask_safe
+    else:
+        mask_safe = 1
+
+    kwargs["mask_safe"] = mask_safe.reduce_over_axes(
+        func=np.logical_or, keepdims=True
+    )
+
+    if dataset.counts is not None:
+        kwargs["counts"] = dataset.counts.sum_over_axes(
+            keepdims=True, weights=mask_safe
+        )
+
+    if dataset.background is not None:
+        background = dataset.background.sum_over_axes(
+            keepdims=True, weights=mask_safe
+        )
+        kwargs["background"] = [background]
+
+    if dataset.edisp is not None:
+        # Check range from mask_safe
+        kwargs["edisp"] = dataset.edisp.to_image()
+
+    if dataset.counts_off is not None:
+        counts_off = dataset.counts_off * mask_safe
+        kwargs["counts_off"] = counts_off.sum_over_axes(keepdims=True)
+
+    if dataset.acceptance is not None:
+        acceptance = dataset.acceptance * mask_safe
+        kwargs["acceptance"] = acceptance.sum_over_axes(keepdims=True)
+
+        background = dataset.background * mask_safe
+        background = background.sum_over_axes(keepdims=True)
+        kwargs["acceptance_off"] = (
+                kwargs["acceptance"] * kwargs["counts_off"] / background
+        )
+
+    return dataset.__class__(**kwargs)
+
 
 
 class ExcessProfileEstimator(Estimator):
@@ -34,6 +96,9 @@ class ExcessProfileEstimator(Estimator):
             * "ul": estimate upper limits.
 
         By default all quantities are estimated.
+    e_edges : `~astropy.units.Quantity`
+        Energy edges of the profiles to be extracted. If None, use the full range of the dataset.
+        Default is None.
 
     Example
     --------
@@ -87,7 +152,7 @@ class ExcessProfileEstimator(Estimator):
         n_sigma=1.0,
         n_sigma_ul=3.0,
         selection_optional="all",
-    ):
+   ):
         self.regions = regions
         self.n_sigma = n_sigma
         self.n_sigma_ul = n_sigma_ul
@@ -97,6 +162,7 @@ class ExcessProfileEstimator(Estimator):
 
         self.spectrum = spectrum
         self.selection_optional = selection_optional
+        self.e_edges = e_edges
 
     def get_spectrum_datasets(self, dataset):
         """ Utility to make the final `~gammapy.datasts.Datasets`
@@ -134,8 +200,8 @@ class ExcessProfileEstimator(Estimator):
             u.Quantity(distances, "deg"), name="projected distance"
         )
 
-    def make_prof(self, sp_datasets):
-        """ Utility to make the profile in each region
+    def estimate_profile(self, sp_datasets):
+        """ Utility to make the profile in each region in one energy range.
 
         Parameters
         ----------
@@ -154,6 +220,7 @@ class ExcessProfileEstimator(Estimator):
         distance = self._get_projected_distance()
 
         for index, spds in enumerate(sp_datasets):
+            spds = spectrum_dataset_to_image(spds)
             old_model = None
             if spds.models is not None:
                 old_model = spds.models
@@ -247,12 +314,18 @@ class ExcessProfileEstimator(Estimator):
         imageprofile : `~gammapy.estimators.ImageProfile`
             Return an image profile class containing the result
         """
+
         spectrum_datasets = self.get_spectrum_datasets(dataset)
-        results = self.make_prof(spectrum_datasets)
+
+        results=[]
+        for e_min, e_max in zip(self.e_edges[:-1], self.e_edges[1:]):
+            datasets = spectrum_datasets.slice_energy(e_min=e_min, e_max=e_max)
+            row = self.estimate_profile(datasets)
+            results.append(row)
+
         table = table_from_row_data(results)
         if isinstance(self.regions[0], RectangleSkyRegion):
             table.meta["PROFILE_TYPE"] = "orthogonal_rectangle"
         table.meta["SPECTRAL_MODEL"] = self.spectrum.to_dict()
 
-        # return ImageProfile(table)
         return table

@@ -7,7 +7,7 @@ from gammapy.utils.table import table_from_row_data
 from gammapy.stats import WStatCountsStatistic, CashCountsStatistic
 from gammapy.datasets import SpectrumDatasetOnOff, Datasets
 from gammapy.maps import MapAxis
-from gammapy.modeling.models import SkyModel, PowerLawSpectralModel
+from gammapy.modeling.models import SkyModel, PowerLawSpectralModel, BackgroundModel
 from gammapy.utils.scripts import make_name
 from .core import Estimator
 
@@ -31,7 +31,8 @@ def spectrum_dataset_to_image(dataset, name=None):
     kwargs = {}
     kwargs["name"] = name
     kwargs["gti"] = dataset.gti
-    kwargs["exposure"] = dataset.exposure
+    kwargs["aeff"] = dataset.aeff
+    kwargs["livetime"] = dataset.livetime
 
     if dataset.mask_safe is not None:
         mask_safe = dataset.mask_safe
@@ -43,15 +44,17 @@ def spectrum_dataset_to_image(dataset, name=None):
     )
 
     if dataset.counts is not None:
-        kwargs["counts"] = dataset.counts.sum_over_axes(
-            keepdims=True, weights=mask_safe
+        kwargs["counts"] = dataset.counts.reduce_over_axes(
+            keepdims=True, weights=mask_safe, func=np.add
         )
 
-    if dataset.background is not None:
-        background = dataset.background.sum_over_axes(
-            keepdims=True, weights=mask_safe
+    if dataset.background_model is not None:
+        background = dataset.background_model.evaluate()
+        background = background.reduce_over_axes(keepdims=True, weights=dataset.mask_safe, func=np.add)
+        model = BackgroundModel(
+            background, datasets_names=[name], name=f"{name}-bkg"
         )
-        kwargs["background"] = [background]
+        kwargs["models"] = [model]
 
     if dataset.edisp is not None:
         # Check range from mask_safe
@@ -322,6 +325,7 @@ class ExcessProfileEstimator(Estimator):
         for e_min, e_max in zip(self.e_edges[:-1], self.e_edges[1:]):
             datasets = spectrum_datasets.slice_energy(e_min=e_min, e_max=e_max)
             row = self.estimate_profile(datasets)
+            print(row[0])
             results.append(row)
 
         table = table_from_row_data(results)

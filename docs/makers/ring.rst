@@ -15,7 +15,18 @@ for 2D image analysis. The working principle is illustrated in `Fig. 1 <figure_r
 For any given pixel in a counts map the off counts are estimate from a ring
 centered on the test position with a given fixed radius and width. To improve
 the estimate, regions with known gamma-ray emission are excluded from measuring
-the off events. A variation of this methods is given by the "adaptive" ring.
+the off events. Since the background distribution (or acceptance) varies in
+the field-of-view, it is necessary to account for it to obtain a proper background
+estimate.
+
+If :math:`ON` is the counts map, :math:`\Psi` the ring function and :math:`\star` the convolution operator,
+we may estimate the total OFF counts as :math:`OFF = ON \star \Psi`  and writing :math:`A_{ON}` the expected
+distribution of the background counts (or the :math:`ON` acceptance), the estimated background is
+
+.. math::
+    N_{bkg} = \alpha \times OFF = \frac{A_{ON}}{A_{ON} \star \Psi} \times \left(ON \star \Psi \right)
+
+A variation of this method is given by the "adaptive" ring.
 In some regions (e.g. in the Galactic plane) a lot of gamma-ray emission
 has to be excluded and there are not many regions left to estimate the background
 from. To improve the off statistics in this case, the ring is adaptively

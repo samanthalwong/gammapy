@@ -18,6 +18,9 @@ class AdaptiveRingBackgroundMaker(Maker):
     size of the ring to achieve a minimum on / off exposure ratio (alpha) in regions
     where the area to estimate the background from is limited.
 
+    To properly run, the input `MapDataset` must contain a non-zero `background_map` to compute
+    the OFF acceptance.
+
     Parameters
     ----------
     r_in : `~astropy.units.Quantity`
@@ -191,6 +194,8 @@ class AdaptiveRingBackgroundMaker(Maker):
     def run(self, dataset):
         """Run adaptive ring background maker
 
+        Note that dataset.background_map must not be empty.
+
         Parameters
         ----------
         dataset : `~gammapy.datasets.MapDataset`
@@ -227,6 +232,9 @@ class RingBackgroundMaker(Maker):
 
     - Step 1: apply exclusion mask
     - Step 2: ring-correlate
+
+    To properly run, the input `MapDataset` must contain a non-zero `background_map` to compute
+    the OFF acceptance.
 
     Parameters
     ----------
@@ -308,6 +316,8 @@ class RingBackgroundMaker(Maker):
 
     def run(self, dataset):
         """Run ring background maker
+
+        Note that dataset.background_map must not be empty.
 
         Parameters
         ----------

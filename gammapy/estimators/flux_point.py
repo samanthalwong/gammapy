@@ -2,6 +2,7 @@
 import logging
 import numpy as np
 from astropy import units as u
+from astropy.time import Time
 from astropy.io.registry import IORegistryError
 from astropy.table import Table, vstack
 from gammapy.datasets import Datasets
@@ -24,6 +25,9 @@ from. flux import FluxEstimator
 __all__ = ["FluxPoints", "FluxPointsEstimator"]
 
 log = logging.getLogger(__name__)
+
+ENERGY_COLUMNS = ["e_min", "e_max", "e_ref"]
+TIME_COLUMNS = ["time_min", "time_max"]
 
 
 class FluxPoints(FluxEstimate):
@@ -112,6 +116,30 @@ class FluxPoints(FluxEstimate):
     ``gammapy download datasets --tests --out $GAMMAPY_DATA``
     """
 
+    def __init__(self, table, ref_model):
+        self._data = table
+        self._reference_spectral_model = ref_model
+
+        if all(_ in self.data.keys() for _ in ENERGY_COLUMNS):
+            self._energy_table = self.data.group_by(ENERGY_COLUMNS)
+        else:
+            raise TypeError("Table does not describe a flux point. Missing energy columns.")
+
+        indices = self._energy_table.groups.indices[:-1]  # or Table.unique
+        e_table = self._energy_table[indices]
+
+        self._energy_axis = MapAxis.from_table(table=e_table, format="gadf-sed")
+        self._expand_slice = slice(None)
+
+        self._time_axis = None
+        if all(_ in self.data.keys() for _ in TIME_COLUMNS):
+            time_table = self.data.group_by(TIME_COLUMNS)
+            indices = time_table.groups.indices[:-1]  # or Table.unique
+            self._time_axis = time_table[indices]
+            if "TIMESYS" not in self._time_axis.keys():
+                log.warning("TIMESYS not defined. Setting time scale to UTC.")
+                self._time_axis.meta["TIMESYS"] = "utc"
+
     def __repr__(self):
         return f"{self.__class__.__name__}(n_points={len(self.table)})"
 
@@ -173,6 +201,53 @@ class FluxPoints(FluxEstimate):
     def table(self):
         """"""
         return self._data
+
+    @property
+    def time_scale(self):
+        """Time scale (str).
+
+        Taken from table "TIMESYS" header.
+        Common values: "TT" or "UTC".
+        Assumed default is "UTC".
+        """
+        return self._time_axis.meta.get("TIMESYS", "utc")
+
+    @property
+    def time_format(self):
+        """Time format (str)."""
+        return "mjd"
+
+    def _make_time(self, colname):
+        if self._time_axis is None:
+            raise ValueError("FluxPoints object contains no time information.")
+
+        val = self._time_axis[colname].data
+        scale = self.time_scale
+        format = self.time_format
+        return Time(val, scale=scale, format=format)
+
+    @property
+    def time(self):
+        """Time (`~astropy.time.Time`)."""
+        return self.time_mid
+
+    @property
+    def time_min(self):
+        return self._make_time("time_min")
+
+    @property
+    def time_max(self):
+        return self._make_time("time_max")
+
+    @property
+    def time_delta(self):
+        """Time bin width (`~astropy.time.TimeDelta`)."""
+        return self.time_max - self.time_min
+
+    @property
+    def time_mid(self):
+        """Time bin center (`~astropy.time.Time`)."""
+        return self.time_min + 0.5 * self.time_delta
 
     @property
     def table_formatted(self):

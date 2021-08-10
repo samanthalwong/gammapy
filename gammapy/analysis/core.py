@@ -228,6 +228,7 @@ class Analysis:
         )
         cols = ["e_ref", "dnde", "dnde_ul", "dnde_err", "sqrt_ts"]
         table = self.flux_points.data.to_table(sed_type="dnde")
+        cols = [_ for _ in cols if _ in table.colnames]
         log.info("\n{}".format(table[cols]))
 
     def get_excess_map(self):

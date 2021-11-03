@@ -462,3 +462,18 @@ def test_run_pwl_parameter_range(fpe_pwl):
 
     actual = table_no_bounds["sqrt_ts"].data
     assert_allclose(actual, [-1.006081, -0.364848, -0.927819], rtol=1e-2)
+
+@requires_dependency("iminuit")
+def test_flux_points_estimator_small_edges():
+    pl = PowerLawSpectralModel(amplitude="1e-11 cm-2s-1TeV-1")
+
+    datasets, fpe = create_fpe(pl)
+
+    fpe.energy_edges = datasets[0].counts.geom.axes["energy"].upsample(2).edges[1:4]
+    fpe.selection_optional = []
+
+    fp = fpe.run(datasets)
+
+    assert_allclose(fp.ts.data[0, 0, 0], 2156.96959291)
+    assert np.isnan(fp.ts.data[1, 0, 0])
+    assert np.isnan(fp.npred.data[1, 0, 0])

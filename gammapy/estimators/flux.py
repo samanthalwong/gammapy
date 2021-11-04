@@ -112,7 +112,7 @@ class FluxEstimator(ParameterEstimator):
         scale_model.norm.scan_n_values = self.norm_n_values
         return scale_model
 
-    def run(self, datasets):
+    def run(self, datasets, models):
         """Estimate flux for a given energy range.
 
         Parameters
@@ -126,19 +126,14 @@ class FluxEstimator(ParameterEstimator):
             Dict with results for the flux point.
         """
         datasets = Datasets(datasets)
-        models = datasets.models.copy()
+        #models = datasets.models.copy()
+
+        result = {}
 
         model = self.get_scale_model(models)
-
-        energy_min, energy_max = datasets.energy_ranges
-        energy_axis = MapAxis.from_energy_edges([energy_min.min(), energy_max.max()])
-
-        with np.errstate(invalid="ignore", divide="ignore"):
-            result = model.reference_fluxes(energy_axis=energy_axis)
-            # convert to scalar values
-            result = {key: value.item() for key, value in result.items()}
-
         models[self.source].spectral_model = model
+
         datasets.models = models
-        result.update(super().run(datasets, model.norm))
+        result.update(super().run(datasets, models, model.norm))
+
         return result

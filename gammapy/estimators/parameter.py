@@ -293,13 +293,15 @@ class ParameterEstimator(Estimator):
 
         return {"npred": np.array(npred), "datasets": datasets.names}
 
-    def run(self, datasets, parameter):
+    def run(self, datasets, models, parameter):
         """Run the parameter estimator.
 
         Parameters
         ----------
         datasets : `~gammapy.datasets.Datasets`
             The datasets used to estimate the model parameter
+        models : `~gammapy.modeling.models.Models`
+            The models used
         parameter : `str` or `Parameter`
             For which parameter to run the estimator
 
@@ -309,7 +311,9 @@ class ParameterEstimator(Estimator):
             Dict with the various parameter estimation values.
         """
         datasets = Datasets(datasets)
-        parameter = datasets.parameters[parameter]
+
+        parameter = models.parameters[parameter]
+        datasets.models = models
 
         with datasets.parameters.restore_status():
 

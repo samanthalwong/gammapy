@@ -666,6 +666,7 @@ class FluxPointsEstimator(FluxEstimator):
         }
 
         table = table_from_row_data(rows=rows, meta=meta)
+        print(table)
         model = datasets.models[self.source]
         return FluxPoints.from_table(
             table=table,
@@ -693,5 +694,16 @@ class FluxPointsEstimator(FluxEstimator):
             energy_min=energy_min, energy_max=energy_max
         )
 
-        datasets_sliced.models = datasets.models.copy()
-        return super().run(datasets=datasets_sliced)
+        models = datasets.models.copy()
+        datasets_sliced.models = models
+
+        energy_axis = MapAxis.from_energy_edges([energy_min.min(), energy_max.max()])
+
+        with np.errstate(invalid="ignore", divide="ignore"):
+            result = models[self.source].spectral_model.reference_fluxes(energy_axis=energy_axis)
+            # convert to scalar values
+            result = {key: value.item() for key, value in result.items()}
+
+        result.update(super().run(datasets=datasets_sliced, models=models))
+
+        return result

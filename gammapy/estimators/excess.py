@@ -2,6 +2,7 @@
 import logging
 import numpy as np
 from gammapy.maps import Map
+from gammapy.datasets import Datasets
 from gammapy.modeling.models import PowerLawSpectralModel
 from gammapy.stats import CashCountsStatistic, WStatCountsStatistic
 from .core import Estimator
@@ -63,7 +64,7 @@ class ExcessEstimator(Estimator):
 
         self.spectral_model = spectral_model
 
-    def run(self, dataset):
+    def run(self, datasets):
         """Compute excess, Li & Ma significance and flux maps
 
         If a model is set on the dataset the excess map estimator will compute the excess taking into account
@@ -91,6 +92,7 @@ class ExcessEstimator(Estimator):
                 * ul : upper limit map
 
         """
+        dataset = Datasets(datasets).stack_reduce()
         axis = self._get_energy_axis(dataset)
 
         resampled_dataset = dataset.resample_energy_axis(

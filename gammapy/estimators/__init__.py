@@ -3,6 +3,7 @@
 from gammapy.utils.registry import Registry
 from .asmooth_map import *
 from .core import *
+from .excess import *
 from .excess_map import *
 from .excess_profile import *
 from .flux_map import *
@@ -14,6 +15,7 @@ from .ts_map import *
 
 ESTIMATOR_REGISTRY = Registry(
     [
+        ExcessEstimator,
         ExcessMapEstimator,
         TSMapEstimator,
         ASmoothMapEstimator,

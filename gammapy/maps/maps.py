@@ -7,6 +7,7 @@ from gammapy.utils.scripts import make_path
 __all__ = ["Maps"]
 
 
+
 class Maps(MutableMapping):
     """A Dictionary containing Map objects sharing the same geometry.
 

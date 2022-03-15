@@ -3,7 +3,7 @@ import copy
 from operator import le, lt
 import numpy as np
 from astropy.io import fits
-from astropy.table import Table, vstack
+from astropy.table import Table, vstack, QTable
 from astropy.time import Time
 from astropy.units import Quantity
 from gammapy.utils.scripts import make_path
@@ -58,8 +58,30 @@ class GTI:
     - Stop: 2015-08-02T23:14:24.184 (time standard: TT)
     """
 
-    def __init__(self, table):
-        self.table = table
+    def __init__(self, table, reference_time=None):
+        self._validate_table(table)
+        self._table = table
+        if reference_time is None:
+            reference_time = self.table["START"][0]
+        self._reference_time = reference_time
+
+    @property
+    def table(self):
+        """The table containing start and stop times."""
+        return self._table
+
+    @property
+    def reference_time(self):
+        """GTI reference time."""
+        return self._reference_time
+
+    @staticmethod
+    def _validate_table(table):
+        required_columns = ["TSTART", "TSTOP"]
+        if not set(required_columns).issubset(table.colnames):
+            raise KeyError(f"GTI table missing key words.")
+        if not isinstance(table["TSTART"], Time) or not isinstance(table["TSTOP"], Time):
+            raise TypeError(f"GTI table column do not contain Time objects.")
 
     def copy(self):
         return copy.deepcopy(self)
@@ -82,7 +104,7 @@ class GTI:
         reference_time = Time(reference_time)
         meta = time_ref_to_dict(reference_time)
         table = Table({"START": start.to("s"), "STOP": stop.to("s")}, meta=meta)
-        return cls(table)
+        return cls(table, reference_time=reference_time)
 
     @classmethod
     def read(cls, filename, hdu="GTI"):
@@ -96,8 +118,12 @@ class GTI:
             hdu name. Default GTI.
         """
         filename = make_path(filename)
-        table = Table.read(filename, hdu=hdu)
-        return cls(table)
+        input_table = Table.read(filename, hdu=hdu)
+        time_ref = time_ref_from_dict(input_table.meta)
+        start = time_ref + Quantity(input_table["START"].astype("float64"), "second")
+        stop = time_ref + Quantity(input_table["STOP"].astype("float64"), "second")
+        table = QTable(data={"TSTART": start, "TSTOP": stop})
+        return cls(table, reference_time=time_ref)
 
     def write(self, filename, **kwargs):
         """Write to file.
@@ -125,9 +151,11 @@ class GTI:
     @property
     def time_delta(self):
         """GTI durations in seconds (`~astropy.units.Quantity`)."""
-        start = self.table["START"].astype("float64")
-        stop = self.table["STOP"].astype("float64")
-        return Quantity(stop - start, "second")
+        delta = self.time_stop - self.time_start
+        return delta.to('s')
+#        start = self.table["START"].astype("float64")
+#        stop = self.table["STOP"].astype("float64")
+#        return Quantity(stop - start, "second")
 
     @property
     def time_ref(self):
@@ -142,14 +170,12 @@ class GTI:
     @property
     def time_start(self):
         """GTI start times (`~astropy.time.Time`)."""
-        met = Quantity(self.table["START"].astype("float64"), "second")
-        return self.time_ref + met
+        return self.table["TSTART"]
 
     @property
     def time_stop(self):
         """GTI end times (`~astropy.time.Time`)."""
-        met = Quantity(self.table["STOP"].astype("float64"), "second")
-        return self.time_ref + met
+        return self.table["TSTOP"]
 
     @property
     def time_intervals(self):

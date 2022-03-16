@@ -58,30 +58,30 @@ class GTI:
     - Stop: 2015-08-02T23:14:24.184 (time standard: TT)
     """
 
-    def __init__(self, table, reference_time=None):
-        self._validate_table(table)
+    def __init__(self, table, time_ref=None):
+        table = self._validate_table(table)
         self._table = table
-        if reference_time is None:
-            reference_time = self.table["START"][0]
-        self._reference_time = reference_time
+        if time_ref is None:
+            time_ref = self.table["START"][0]
+        self._time_ref = time_ref
 
     @property
     def table(self):
         """The table containing start and stop times."""
         return self._table
 
-    @property
-    def reference_time(self):
-        """GTI reference time."""
-        return self._reference_time
-
     @staticmethod
     def _validate_table(table):
+        # Check that tstart is smaller than tstop?
         required_columns = ["TSTART", "TSTOP"]
         if not set(required_columns).issubset(table.colnames):
             raise KeyError(f"GTI table missing key words.")
         if not isinstance(table["TSTART"], Time) or not isinstance(table["TSTOP"], Time):
             raise TypeError(f"GTI table column do not contain Time objects.")
+        # Set time format to MJD
+        table["TSTART"].format="mjd"
+        table["TSTOP"].format="mjd"
+        return table
 
     def copy(self):
         return copy.deepcopy(self)
@@ -123,7 +123,7 @@ class GTI:
         start = time_ref + Quantity(input_table["START"].astype("float64"), "second")
         stop = time_ref + Quantity(input_table["STOP"].astype("float64"), "second")
         table = QTable(data={"TSTART": start, "TSTOP": stop})
-        return cls(table, reference_time=time_ref)
+        return cls(table, time_ref=time_ref)
 
     def write(self, filename, **kwargs):
         """Write to file.
@@ -153,14 +153,12 @@ class GTI:
         """GTI durations in seconds (`~astropy.units.Quantity`)."""
         delta = self.time_stop - self.time_start
         return delta.to('s')
-#        start = self.table["START"].astype("float64")
-#        stop = self.table["STOP"].astype("float64")
-#        return Quantity(stop - start, "second")
 
     @property
     def time_ref(self):
         """Time reference (`~astropy.time.Time`)."""
-        return time_ref_from_dict(self.table.meta)
+        return self._time_ref
+        # time_ref_from_dict(self.table.meta)
 
     @property
     def time_sum(self):
@@ -176,6 +174,16 @@ class GTI:
     def time_stop(self):
         """GTI end times (`~astropy.time.Time`)."""
         return self.table["TSTOP"]
+
+    @property
+    def start(self):
+        """GTI start time delta since reference time in sec (`~astropy.Quantity`)."""
+        return (self.time_start - self.time_ref).to('s')
+
+    @property
+    def stop(self):
+        """GTI stop time delta since reference time in sec (`~astropy.Quantity`)."""
+        return (self.time_stop - self.time_ref).to('s')
 
     @property
     def time_intervals(self):
@@ -224,28 +232,18 @@ class GTI:
         # get GTIs that fall within the time_interval
         mask = self.time_start < time_interval[1]
         mask &= self.time_stop > time_interval[0]
-        gti_within = self.table[mask]
 
-        # crop the GTIs
-        start_met = time_relative_to_ref(time_interval[0], self.table.meta)
-        stop_met = time_relative_to_ref(time_interval[1], self.table.meta)
-        np.clip(
-            gti_within["START"],
-            start_met.value,
-            stop_met.value,
-            out=gti_within["START"],
-        )
-        np.clip(
-            gti_within["STOP"], start_met.value, stop_met.value, out=gti_within["STOP"]
-        )
+        gti_crop = {}
+        gti_crop["TSTART"] = Time(np.clip(self.time_start[mask], time_interval[0], time_interval[1]))
+        gti_crop["TSTOP"] = Time(np.clip(self.time_stop[mask], time_interval[0], time_interval[1]))
 
-        return self.__class__(gti_within)
+        return self.__class__(Table(gti_crop), time_ref=self.time_ref)
 
     def stack(self, other):
         """Stack with another GTI in place.
 
-        This simply changes the time reference of the second GTI table
-        and stack the two tables. No logic is applied to the intervals.
+        This simply stacks the two tables. No logic is applied to the intervals.
+        The reference time of the first GTI is kept.
 
         Parameters
         ----------
@@ -253,10 +251,7 @@ class GTI:
             GTI to stack to self
 
         """
-        start = (other.time_start - self.time_ref).sec
-        end = (other.time_stop - self.time_ref).sec
-        table = Table({"START": start, "STOP": end}, names=["START", "STOP"])
-        self.table = vstack([self.table, table])
+        self._table = vstack([self.table, other.table])
 
     @classmethod
     def from_stack(cls, gtis, **kwargs):

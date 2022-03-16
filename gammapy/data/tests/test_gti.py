@@ -108,12 +108,12 @@ def test_gti_stack():
 
 
 def test_gti_union():
-    gti = make_gti({"START": [5, 6, 1, 2], "STOP": [8, 7, 3, 4]})
+    gti = make_gti({"START": [5, 6, 1, 2]*u.s, "STOP": [8, 7, 3, 4]*u.s})
 
     gti = gti.union()
 
-    assert_allclose(gti.table["START"], [1, 5])
-    assert_allclose(gti.table["STOP"], [4, 8])
+    assert_allclose(gti.start.to_value('s'), [1, 5])
+    assert_allclose(gti.stop.to_value('s'), [4, 8])
 
 
 def test_gti_create():
@@ -125,7 +125,7 @@ def test_gti_create():
 
     assert len(gti.table) == 2
     assert_allclose(gti.time_ref.mjd, time_ref.tt.mjd)
-    assert_allclose(gti.table["START"], start.to_value("s"))
+    assert_allclose(gti.start.to_value('s'), start.to_value("s"))
 
 
 def test_gti_write(tmp_path):

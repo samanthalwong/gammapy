@@ -62,7 +62,7 @@ class GTI:
         table = self._validate_table(table)
         self._table = table
         if time_ref is None:
-            time_ref = self.table["START"][0]
+            time_ref = self.table["TSTART"][0]
         self._time_ref = time_ref
 
     @property
@@ -102,9 +102,8 @@ class GTI:
         start = Quantity(start, ndmin=1)
         stop = Quantity(stop, ndmin=1)
         reference_time = Time(reference_time)
-        meta = time_ref_to_dict(reference_time)
-        table = Table({"START": start.to("s"), "STOP": stop.to("s")}, meta=meta)
-        return cls(table, reference_time=reference_time)
+        table = Table({"TSTART": reference_time+start, "TSTOP": reference_time+stop})
+        return cls(table, time_ref=reference_time)
 
     @classmethod
     def read(cls, filename, hdu="GTI"):
@@ -292,24 +291,24 @@ class GTI:
         # see e.g. https://stackoverflow.com/a/43600953/498873
 
         table = self.table.copy()
-        table.sort("START")
+        table.sort("TSTART")
 
         compare = lt if merge_equal else le
 
         # We use Python dict instead of astropy.table.Row objects,
         # because on some versions modifying Row entries doesn't behave as expected
-        merged = [{"START": table[0]["START"], "STOP": table[0]["STOP"]}]
+        merged = [{"TSTART": table[0]["TSTART"], "TSTOP": table[0]["TSTOP"]}]
         for row in table[1:]:
-            interval = {"START": row["START"], "STOP": row["STOP"]}
-            if compare(merged[-1]["STOP"], interval["START"]):
+            interval = {"TSTART": row["TSTART"], "TSTOP": row["TSTOP"]}
+            if compare(merged[-1]["TSTOP"], interval["TSTART"]):
                 merged.append(interval)
             else:
                 if not overlap_ok:
                     raise ValueError("Overlapping time bins")
 
-                merged[-1]["STOP"] = max(interval["STOP"], merged[-1]["STOP"])
+                merged[-1]["TSTOP"] = max(interval["TSTOP"], merged[-1]["TSTOP"])
 
-        merged = Table(rows=merged, names=["START", "STOP"], meta=self.table.meta)
+        merged = Table(rows=merged, names=["TSTART", "TSTOP"], meta=self.table.meta)
         return self.__class__(merged)
 
     def group_table(self, time_intervals, atol="1e-6 s"):

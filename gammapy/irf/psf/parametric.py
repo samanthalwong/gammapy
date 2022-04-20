@@ -23,7 +23,7 @@ class ParametricPSF(PSF):
     data : dict of `~numpy.ndarray`, or `~numpy.recarray`
         Data
     unit : dict of str or `~astropy.units.Unit`
-        Unit
+        Unit, ignored if data is a dict of Quantity.
     meta : dict
         Meta data
     """

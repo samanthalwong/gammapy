@@ -91,7 +91,7 @@ class Background3D(BackgroundIRF):
     data : `~np.ndarray`
         Data array.
     unit : str or `~astropy.units.Unit`
-        Data unit usuually ``s^-1 MeV^-1 sr^-1``
+        Data unit usuually ``s^-1 MeV^-1 sr^-1``, ignored if data is a Quantity.
     meta : dict
         Meta data
 
@@ -212,7 +212,7 @@ class Background2D(BackgroundIRF):
     data : `~np.ndarray`
         Data array.
     unit : str or `~astropy.units.Unit`
-        Data unit usually ``s^-1 MeV^-1 sr^-1``
+        Data unit usually ``s^-1 MeV^-1 sr^-1``, ignored if data is a Quantity.
     meta : dict
         Meta data
     """

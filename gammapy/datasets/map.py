@@ -319,7 +319,7 @@ class MapDataset(Dataset):
     @property
     def excess(self):
         """Observed excess: counts-background"""
-        return self.counts - self.background
+        return Map.from_geom(self._geom, data=self._counts_statistic.n_sig)
 
     @models.setter
     def models(self, models):

@@ -99,7 +99,7 @@ docs-sphinx:
 	cd docs && python -m sphinx . _build/html -b html -j auto
 
 docs-all:
-	python -m gammapy jupyter tar --out docs/_downloads/notebooks-$(release).tar
+	python -m gammapy jupyter tar --out docs/_downloads/notebooks-$(RELEASE).tar
 	python -m gammapy.utils.notebooks_process --src="$(src)"
 	cd docs && python -m sphinx . _build/html -b html -j auto
 	python -m gammapy.utils.notebooks_links --src="$(src)"

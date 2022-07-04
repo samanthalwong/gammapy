@@ -2,8 +2,8 @@
 
 PROJECT = gammapy
 CYTHON ?= cython
-version = dev
-release = $(version)
+#version = dev
+#release = $(version)
 
 help:
 	@echo ''

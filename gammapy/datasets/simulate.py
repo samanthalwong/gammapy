@@ -7,7 +7,7 @@ from astropy.table import Table
 import gammapy
 from gammapy.data import EventList, observatory_locations
 from gammapy.maps import MapCoord
-from gammapy.modeling.models import ConstantTemporalModel
+from gammapy.modeling.models import ConstantTemporalModel, PointSpatialModel
 from gammapy.utils.random import get_random_state
 
 __all__ = ["MapDatasetEventSampler"]
@@ -52,6 +52,14 @@ class MapDatasetEventSampler:
         table["TIME"] = u.Quantity(((time.mjd - time_ref.mjd) * u.day).to(u.s)).to("s")
         return table
 
+    def _sample_energy_time(self, evaluator, gti):
+        # Assumes point source
+        position = evaluator.model.spatial_model.position
+        energies = evaluator.exposure.geom.axes["energy_true"].center
+        coords = {"skycoord":position, "energy_true":energies}
+        exposure = evaluator.exposure.get_by_coord(coords)*evaluator.exposure.unit
+        print(exposure)
+
     def sample_sources(self, dataset):
         """Sample source model components.
 
@@ -77,15 +85,18 @@ class MapDatasetEventSampler:
                     dataset.mask,
                 )
 
-            flux = evaluator.compute_flux()
-            npred = evaluator.apply_exposure(flux)
-
-            if evaluator.model.temporal_model is None:
-                temporal_model = ConstantTemporalModel()
+            if isinstance(evaluator.model.spatial_model, PointSpatialModel):
+                table = self._sample_energy_time(evaluator, dataset.gti)
             else:
-                temporal_model = evaluator.model.temporal_model
+                flux = evaluator.compute_flux()
+                npred = evaluator.apply_exposure(flux)
 
-            table = self._sample_coord_time(npred, temporal_model, dataset.gti)
+                if evaluator.model.temporal_model is None:
+                    temporal_model = ConstantTemporalModel()
+                else:
+                    temporal_model = evaluator.model.temporal_model
+
+                table = self._sample_coord_time(npred, temporal_model, dataset.gti)
 
             if len(table) == 0:
                 mcid = table.Column(name="MC_ID", length=0, dtype=int)

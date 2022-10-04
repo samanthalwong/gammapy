@@ -6,6 +6,7 @@ from .fit_statistics_cython import (
     cash_sum_cython,
     f_cash_root_cython,
     norm_bounds_cython,
+    wstat_sum_cython,
 )
 
 __all__ = [
@@ -19,4 +20,5 @@ __all__ = [
     "norm_bounds_cython",
     "wstat",
     "WStatCountsStatistic",
+    "wstat_sum_cython",
 ]

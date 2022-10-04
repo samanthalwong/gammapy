@@ -9,6 +9,9 @@ cimport cython
 cdef extern from "math.h":
     float log(float x)
 
+cdef extern from "math.h":
+    float sqrt(float x)
+
 global TRUNCATION_VALUE
 TRUNCATION_VALUE = 1e-25
 
@@ -117,3 +120,36 @@ def norm_bounds_cython(np.ndarray[np.float_t, ndim=1] counts,
     b_min = c_min / s_model - sn_min
     b_max = s_counts / s_model - sn_min
     return b_min, b_max, -sn_min_total
+
+@cython.cdivision(True)
+@cython.boundscheck(False)
+def wstat_sum_cython(np.ndarray[np.float_t, ndim=1] n_on,
+              np.ndarray[np.float_t, ndim=1] n_off,
+              np.ndarray[np.float_t, ndim=1] alpha,
+              np.ndarray[np.float_t, ndim=1] mu_sig):
+
+    cdef np.float_t sum = 0
+    cdef np.float_t C, D
+    cdef np.float_t non, noff, alp, musig, mubkg, total
+    cdef unsigned int i, ni
+    cdef np.float_t trunc = TRUNCATION_VALUE
+
+    ni = n_on.shape[0]
+    for i in range(ni):
+        alp = alpha[i]
+        musig = mu_sig[i]
+        non = n_on[i]
+        noff = n_off[i]
+
+        C = alp * (non + noff) - (1 + alp) * musig
+        D = sqrt(C**2 + 4 * alp * (alp + 1) * noff * musig)
+        mubkg = (C + D) / (2 * alp * (alp + 1))
+
+        total = musig + (1 + alp) * mubkg
+        if non > trunc:
+            total += -non * (1+log(musig + alp * mubkg)- log(non))
+        if noff > trunc:
+            total += -noff *(1+log(mubkg)-log(noff))
+
+        sum += total
+    return 2*sum

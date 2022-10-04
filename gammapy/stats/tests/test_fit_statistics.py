@@ -169,3 +169,13 @@ def test_wstat_corner_cases():
 
     actual = stats.get_wstat_mu_bkg(n_on=n_on, mu_sig=mu_sig, n_off=n_off, alpha=alpha)
     assert_allclose(actual, 0)
+
+def test_wstat_sum_cython(test_data):
+    n_on = np.array(test_data["n_on"], dtype=float)
+    npred = np.array(test_data["mu_sig"], dtype=float)
+    n_off = np.array(test_data["n_off"], dtype=float)
+    alpha = np.array(test_data["alpha"], dtype=float)
+
+    stat = stats.wstat_sum_cython(n_on=n_on, n_off=n_off, alpha=alpha, mu_sig=npred)
+    ref = stats.wstat(n_on, n_off, alpha, npred).sum()
+    assert_allclose(stat, ref)

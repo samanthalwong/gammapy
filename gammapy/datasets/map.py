@@ -17,6 +17,7 @@ from gammapy.stats import (
     cash_sum_cython,
     get_wstat_mu_bkg,
     wstat,
+    wstat_sum_cython,
 )
 from gammapy.utils.fits import HDULocation, LazyFitsData
 from gammapy.utils.random import get_random_state
@@ -2356,7 +2357,18 @@ class MapDatasetOnOff(MapDataset):
 
     def stat_sum(self):
         """Total likelihood given the current model parameters."""
-        return Dataset.stat_sum(self)
+        n_on, npred = self.counts.data.astype(float), self.npred().data
+        n_off = self.counts_off.data.astype(float)
+        alpha = self.alpha.data
+
+        if self.mask is not None:
+            return wstat_sum_cython(n_on[self.mask.data],
+                                    n_off[self.mask.data],
+                                    alpha[self.mask.data],
+                                    npred[self.mask.data])
+        else:
+            return wstat_sum_cython(n_on.ravel(), n_off.ravel(), alpha.ravel(), npred.ravel())
+
 
     def fake(self, npred_background, random_state="random-seed"):
         """Simulate fake counts (on and off) for the current model and reduced IRFs.
@@ -2372,9 +2384,9 @@ class MapDatasetOnOff(MapDataset):
         random_state = get_random_state(random_state)
         npred = self.npred_signal()
         data = np.nan_to_num(npred.data, copy=True, nan=0.0, posinf=0.0, neginf=0.0)
-        npred.data = random_state.poisson(data)
+        npred.data = random_state.poisson(data).astype('int')
 
-        npred_bkg = random_state.poisson(npred_background.data)
+        npred_bkg = random_state.poisson(npred_background.data).astype('int')
 
         self.counts = npred + npred_bkg
 
@@ -2382,7 +2394,7 @@ class MapDatasetOnOff(MapDataset):
         data_off = np.nan_to_num(
             npred_off.data, copy=True, nan=0.0, posinf=0.0, neginf=0.0
         )
-        npred_off.data = random_state.poisson(data_off)
+        npred_off.data = random_state.poisson(data_off).astype('int')
         self.counts_off = npred_off
 
     def to_hdulist(self):

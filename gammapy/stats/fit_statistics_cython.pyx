@@ -127,6 +127,19 @@ def wstat_sum_cython(np.ndarray[np.float_t, ndim=1] n_on,
               np.ndarray[np.float_t, ndim=1] n_off,
               np.ndarray[np.float_t, ndim=1] alpha,
               np.ndarray[np.float_t, ndim=1] mu_sig):
+    """Summed wstat fit statistics.
+
+    Parameters
+    ----------
+    n_on : `~numpy.ndarray`
+        Counts 1D array.
+    n_off : `~numpy.ndarray`
+        Off counts 1D array.
+    alpha : `~numpy.ndarray`
+        alpha 1D array.
+    mu_sig : `~numpy.ndarray`
+        Predicted counts 1D array.
+    """
 
     cdef np.float_t sum = 0
     cdef np.float_t C, D

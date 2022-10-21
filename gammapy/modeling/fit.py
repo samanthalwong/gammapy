@@ -145,7 +145,8 @@ class Fit:
     def _parse_datasets(datasets):
         from gammapy.datasets import Datasets
 
-        datasets = Datasets(datasets)
+        if not isinstance(datasets, Datasets):
+            datasets = Datasets(datasets)
         return datasets, datasets.parameters
 
     def run(self, datasets):

@@ -330,9 +330,9 @@ class MapDataset(Dataset):
 
         if models is not None:
             models = DatasetModels(models)
-            models = models.select(datasets_names=self.name)
+            models_dataset = models.select(datasets_names=self.name)
 
-            for model in models:
+            for model in models_dataset:
                 if not isinstance(model, FoVBackgroundModel):
                     evaluator = MapEvaluator(
                         model=model,

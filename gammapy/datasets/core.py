@@ -136,6 +136,7 @@ class Datasets(collections.abc.MutableSequence):
             unique_names.append(dataset.name)
 
         self._datasets = datasets
+        self._models = self._build_datasets_models()
 
     @property
     def parameters(self):
@@ -153,6 +154,9 @@ class Datasets(collections.abc.MutableSequence):
         Duplicate model objects have been removed.
         The order of the unique models remains.
         """
+        return self._models
+
+    def _build_datasets_models(self):
         models = {}
 
         for dataset in self:
@@ -171,6 +175,7 @@ class Datasets(collections.abc.MutableSequence):
         """
         for dataset in self:
             dataset.models = models
+        self._models = models
 
     @property
     def names(self):
@@ -535,12 +540,14 @@ class Datasets(collections.abc.MutableSequence):
 
     def __delitem__(self, key):
         del self._datasets[self.index(key)]
+        self._models = self._build_datasets_models()
 
     def __setitem__(self, key, dataset):
         if isinstance(dataset, Dataset):
             if dataset.name in self.names:
                 raise (ValueError("Dataset names must be unique"))
             self._datasets[self.index(key)] = dataset
+            self._models = self._build_datasets_models()
         else:
             raise TypeError(f"Invalid type: {type(dataset)!r}")
 
@@ -549,6 +556,7 @@ class Datasets(collections.abc.MutableSequence):
             if dataset.name in self.names:
                 raise (ValueError("Dataset names must be unique"))
             self._datasets.insert(idx, dataset)
+            self._models = self._build_datasets_models()
         else:
             raise TypeError(f"Invalid type: {type(dataset)!r}")
 

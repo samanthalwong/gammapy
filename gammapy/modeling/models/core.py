@@ -324,7 +324,9 @@ class DatasetModels(collections.abc.Sequence):
         if models is None:
             models = []
 
+        covariance_data = None
         if isinstance(models, (Models, DatasetModels)):
+            covariance_data = models.covariance.data
             models = models._models
         elif isinstance(models, ModelBase):
             models = [models]
@@ -339,7 +341,7 @@ class DatasetModels(collections.abc.Sequence):
 
         self._models = models
         self._covar_file = None
-        self._covariance = Covariance(self.parameters)
+        self._covariance = Covariance(self.parameters, data=covariance_data)
 
     def _check_covariance(self):
         if not self.parameters == self._covariance.parameters:

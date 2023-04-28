@@ -1,4 +1,6 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
+import copy
+import inspect
 import numpy as np
 import scipy.ndimage
 from astropy import units as u
@@ -6,12 +8,13 @@ from astropy.coordinates import SkyCoord
 from astropy.table import Table
 from gammapy.datasets import SpectrumDataset, SpectrumDatasetOnOff
 from gammapy.datasets.map import MapEvaluator
-from gammapy.maps import WcsNDMap
+from gammapy.maps import Map, WcsNDMap
 from gammapy.modeling.models import (
     ConstantFluxSpatialModel,
     PowerLawSpectralModel,
     SkyModel,
 )
+from gammapy.utils.scripts import make_name
 
 __all__ = [
     "estimate_exposure_reco_energy",
@@ -226,3 +229,64 @@ def resample_energy_edges(dataset, conditions={}):
                 energy_edges.append(energy_min)
                 break
     return u.Quantity(energy_edges[::-1])
+
+
+def dataset_init_copy(dataset, **kwargs):
+    argnames = inspect.getfullargspec(dataset.__init__).args
+    argnames.remove("self")
+
+    for arg in argnames:
+        value = getattr(dataset, arg)
+        if arg not in kwargs:
+            kwargs[arg] = copy.deepcopy(value)
+
+    return dataset.__class__(**kwargs)
+
+
+def slice_by_energy_shallow(dataset, energy_min, energy_max, name=None):
+    """Perform a shallow slice by energy.
+
+    This simply adds a mask over the datasets.
+
+    Parameters
+    ----------
+    energy_min, energy_max : `~astropy.units.Quantity`
+        Energy bounds to compute the flux point for.
+    name : str
+        Name of the sliced dataset.
+
+    Returns
+    -------
+    dataset : `MapDataset`
+        Sliced Dataset
+    """
+    name = make_name(name)
+
+    energy_axis = dataset._geom.axes["energy"]
+
+    if energy_min is None:
+        energy_min = energy_axis.bounds[0]
+
+    if energy_max is None:
+        energy_max = energy_axis.bounds[1]
+
+        energy_min, energy_max = u.Quantity(energy_min), u.Quantity(energy_max)
+
+    group = energy_axis.group_table(edges=[energy_min, energy_max])
+
+    is_normal = group["bin_type"] == "normal   "
+    group = group[is_normal]
+
+    energy_slice = slice(int(group["idx_min"][0]), int(group["idx_min"][0]) + 1)
+
+    slices = tuple(
+        [
+            energy_slice if ax.name == "energy" else slice(None)
+            for ax in dataset._geom.axes
+        ]
+    )
+    mask = Map.from_geom(dataset._geom, dtype=bool)
+    mask.data[slices[::-1]] &= True
+    if dataset.mask_fit is not None:
+        mask *= dataset.mask_fit
+    return dataset_init_copy(dataset, name=name, mask_fit=mask)

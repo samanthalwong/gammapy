@@ -9,7 +9,9 @@ from gammapy.datasets import Datasets
 from gammapy.maps import MapAxis
 from gammapy.modeling import Fit
 from gammapy.utils.pbar import progress_bar
+from ..core import Estimator
 from ..flux import FluxEstimator
+from ..utils import slice_by_energy_shallow
 from .core import FluxPoints
 
 log = logging.getLogger(__name__)
@@ -17,7 +19,7 @@ log = logging.getLogger(__name__)
 __all__ = ["FluxPointsEstimator"]
 
 
-class FluxPointsEstimator(FluxEstimator):
+class FluxPointsEstimator(Estimator):
     """Flux points estimator.
 
     Estimates flux points for a given list of datasets, energies and spectral model.
@@ -87,7 +89,9 @@ class FluxPointsEstimator(FluxEstimator):
 
         fit = Fit(confidence_opts={"backend": "scipy"})
         kwargs.setdefault("fit", fit)
-        super().__init__(**kwargs)
+        self.flux_estimator = FluxEstimator(**kwargs)
+
+    #       super().__init__(**kwargs)
 
     def run(self, datasets):
         """Run the flux point estimator for all energy groups.
@@ -118,8 +122,8 @@ class FluxPointsEstimator(FluxEstimator):
         rows = []
 
         meta = {
-            "n_sigma": self.n_sigma,
-            "n_sigma_ul": self.n_sigma_ul,
+            "n_sigma": self.flux_estimator.n_sigma,
+            "n_sigma_ul": self.flux_estimator.n_sigma_ul,
             "sed_type_init": "likelihood",
         }
 
@@ -145,7 +149,8 @@ class FluxPointsEstimator(FluxEstimator):
                 rows.append(row)
 
         table = Table(rows, meta=meta)
-        model = datasets.models[self.source]
+        model = datasets.models[self.flux_estimator.source]
+
         return FluxPoints.from_table(
             table=table,
             reference_model=model.copy(),
@@ -168,20 +173,32 @@ class FluxPointsEstimator(FluxEstimator):
         result : dict
             Dict with results for the flux point.
         """
-        datasets_sliced = datasets.slice_by_energy(
-            energy_min=energy_min, energy_max=energy_max
-        )
+        datasets_sliced = Datasets()
+        for dataset in datasets:
+            datasets_sliced.append(
+                slice_by_energy_shallow(
+                    dataset,
+                    energy_min=energy_min,
+                    energy_max=energy_max,
+                    name=dataset.name,
+                )
+            )
+        #        datasets_sliced = datasets.slice_by_energy(
+        #            energy_min=energy_min, energy_max=energy_max
+        #        )
         if self.sum_over_energy_groups:
             datasets_sliced = Datasets(
                 [_.to_image(name=_.name) for _ in datasets_sliced]
             )
 
         if len(datasets_sliced) > 0:
-            datasets_sliced.models = datasets.models.copy()
-            return super().run(datasets=datasets_sliced)
+            #            datasets_sliced.models = datasets.models.copy()
+            result = self.flux_estimator.run(datasets=datasets_sliced)
+            result.update({"e_min": energy_min, "e_max": energy_max})
+            return result
         else:
             log.warning(f"No dataset contribute in range {energy_min}-{energy_max}")
-            model = datasets.models[self.source].spectral_model
+            model = datasets.models[self.flux_estimator.source].spectral_model
             return self._nan_result(datasets, model, energy_min, energy_max)
 
     def _nan_result(self, datasets, model, energy_min, energy_max):
@@ -214,7 +231,7 @@ class FluxPointsEstimator(FluxEstimator):
             result.update({"norm_ul": np.nan})
 
         if "scan" in self.selection_optional:
-            norm = super()._set_norm_parameter()
+            norm = self.flux_estimator._set_norm_parameter()
             norm_scan = norm.scan_values
             result.update({"norm_scan": norm_scan, "stat_scan": np.nan * norm_scan})
 

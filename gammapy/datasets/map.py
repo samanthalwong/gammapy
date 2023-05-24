@@ -8,7 +8,7 @@ from regions import CircleSkyRegion
 import matplotlib.pyplot as plt
 from gammapy.data import GTI
 from gammapy.irf import EDispKernelMap, EDispMap, PSFKernel, PSFMap, RecoPSFMap
-from gammapy.maps import LabelMapAxis, Map, MapAxis
+from gammapy.maps import LabelMapAxis, Map, MapAxis, RegionGeom
 from gammapy.modeling.models import DatasetModels, FoVBackgroundModel
 from gammapy.stats import (
     CashCountsStatistic,
@@ -1524,7 +1524,7 @@ class MapDataset(Dataset):
 
         return SpectrumDataset(**kwargs)
 
-    def to_region_map_dataset(self, region, name=None):
+    def to_region_map_dataset(self, region, name=None, minimal_valid_overlap=0.9):
         """Integrate the map dataset in a given region.
 
         Counts and background of the dataset are integrated in the given region,
@@ -1532,20 +1532,56 @@ class MapDataset(Dataset):
         region again taking the safe mask into account. The PSF and energy
         dispersion kernel are taken at the center of the region.
 
+        Because only a fraction of the valid part of the dataset can be covered
+        by the region, a correction must be introduced to ensure the number of
+        predicted counts for a flat spatial model is the same. The ratio between
+        the solid angle of the region intersection with the dataset safe mask
+        and the solid angle of the full region is computed and applied to
+        the new dataset edisp.
+
+        To avoid projections with small overlaps a minimal overlap fraction is
+        introduced. If the condition is not met, the returned dataset will have
+        its safe mask entries set to False.
+
         Parameters
         ----------
         region : `~regions.SkyRegion`
             Region from which to extract the spectrum
         name : str
             Name of the new dataset.
+        minimal_overlap : float
+            Minimal fraction of region solid angle that is covered by the geometry and the mask.
+            Possible values range from 0 to 1. Default is 0.9.
 
         Returns
         -------
         dataset : `~gammapy.datasets.MapDataset`
             the resulting reduced dataset
         """
+        if minimal_valid_overlap < 0 or minimal_valid_overlap > 1:
+            raise ValueError(
+                f"Minimal overlap must range between 0 and 1. Got {minimal_valid_overlap} instead."
+            )
+
         name = make_name(name)
         kwargs = {"gti": self.gti, "name": name, "meta_table": self.meta_table}
+
+        region_geom = RegionGeom.create(region, wcs=self._geom)
+
+        if self.mask_safe_image:
+            mask_image = self.mask_safe_image
+        else:
+            mask_image = Map.from_geom(self._geom.to_image(), data=True)
+
+        cutout, mask = mask_image.cutout_and_mask_region(region)
+        overlap_fraction = (
+            np.sum(mask.data * mask.geom.solid_angle()) / region_geom.solid_angle()
+        )
+        if overlap_fraction < minimal_valid_overlap:
+            log.warning(
+                f"Region overlap with dataset {self.name} is {overlap_fraction},"
+                f"below expected value of {minimal_valid_overlap}."
+            )
 
         if self.mask_safe:
             kwargs["mask_safe"] = self.mask_safe.to_region_nd_map(region, func=np.any)

@@ -1909,3 +1909,15 @@ def test_peek(images):
 def test_create_psf_reco(geom):
     dat = MapDataset.create(geom, reco_psf=True)
     assert isinstance(dat.psf, RecoPSFMap)
+
+
+def test_to_region_nd_map(geom, geom_etrue):
+    print(geom)
+    dataset = get_map_dataset(geom, geom_etrue)
+
+    region = RegionGeom.create("icrs; box(267.4, -28.9, 0.5, 0.5)").region
+    region_dataset = dataset.to_region_map_dataset(region)
+
+    print(region_dataset)
+
+    assert False

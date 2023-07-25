@@ -229,4 +229,4 @@ def get_parallel_backend(backend):
     else:
         import multiprocessing
 
-        return multiprocessing
+        return multiprocessing.get_context("spawn")

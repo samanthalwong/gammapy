@@ -19,7 +19,7 @@ __all__ = [
 
 
 class DatasetReader(abc.ABC):
-    """Dataset reader base class"""
+    """Dataset reader base class."""
 
     @property
     @abc.abstractmethod
@@ -32,7 +32,7 @@ class DatasetReader(abc.ABC):
 
 
 class DatasetWriter(abc.ABC):
-    """Dataset writer base class"""
+    """Dataset writer base class."""
 
     @property
     @abc.abstractmethod
@@ -47,7 +47,7 @@ class DatasetWriter(abc.ABC):
 class OGIPDatasetWriter(DatasetWriter):
     """Write OGIP files.
 
-    If you want to use the written files with Sherpa you have to use the
+    If you want to use the written files with Sherpa, you have to use the
     ``ogip-sherpa`` format. Then all files will be written in units of 'keV' and
     'cm2'.
 
@@ -60,37 +60,41 @@ class OGIPDatasetWriter(DatasetWriter):
 
     Parameters
     ----------
-    filename : `pathlib.Path` or str
+    filename : `~pathlib.Path` or str
         Filename.
     format : {"ogip", "ogip-sherpa"}
-        Which format to use.
-    overwrite : bool
-        Overwrite existing files?
+        Which format to use. Default is 'ogip'.
+    overwrite : bool, optional
+        Overwrite existing files. Default is False.
+    checksum : bool
+        When True adds both DATASUM and CHECKSUM cards to the headers written to the files.
+        Default is False.
     """
 
     tag = ["ogip", "ogip-sherpa"]
 
-    def __init__(self, filename, format="ogip", overwrite=False):
+    def __init__(self, filename, format="ogip", overwrite=False, checksum=False):
         filename = make_path(filename)
         filename.parent.mkdir(exist_ok=True, parents=True)
 
         self.filename = filename
         self.format = format
         self.overwrite = overwrite
+        self.checksum = checksum
 
     @staticmethod
     def get_filenames(filename):
-        """Get filenames
+        """Get filenames.
 
         Parameters
         ----------
         filename : `~pathlib.Path`
-            Filename
+            Filename.
 
         Returns
         -------
         filenames : dict
-            Dict of filenames.
+            Dictionary of filenames.
         """
         suffix = "".join(filename.suffixes)
         name = filename.name.replace(suffix, "")
@@ -102,7 +106,7 @@ class OGIPDatasetWriter(DatasetWriter):
         }
 
     def get_ogip_meta(self, dataset, is_bkg=False):
-        """Meta info for the OGIP data format"""
+        """Meta info for the OGIP data format."""
         try:
             livetime = dataset.exposure.meta["livetime"]
         except KeyError:
@@ -124,21 +128,21 @@ class OGIPDatasetWriter(DatasetWriter):
         filenames = OGIPDatasetWriter.get_filenames(self.filename)
         meta["ANCRFILE"] = filenames["ancrfile"]
 
-        if dataset.edisp:
+        if dataset.counts_off:
             meta["BACKFILE"] = filenames["backfile"]
 
-        if dataset.counts_off:
+        if dataset.edisp:
             meta["RESPFILE"] = filenames["respfile"]
 
         return meta
 
     def write(self, dataset):
-        """Write dataset to files
+        """Write dataset to file.
 
         Parameters
         ----------
         dataset : `SpectrumDatasetOnOff`
-            Dataset to write
+            Dataset to write.
         """
         filenames = self.get_filenames(self.filename)
 
@@ -159,21 +163,26 @@ class OGIPDatasetWriter(DatasetWriter):
         Parameters
         ----------
         dataset : `SpectrumDatasetOnOff`
-            Dataset to write
-        filename : str or `Path`
+            Dataset to write.
+        filename : str or `~pathlib.Path`
             Filename to use.
         """
         kernel = dataset.edisp.get_edisp_kernel()
-        kernel.write(filename=filename, overwrite=self.overwrite, format=self.format)
+        kernel.write(
+            filename=filename,
+            overwrite=self.overwrite,
+            format=self.format,
+            checksum=self.checksum,
+        )
 
     def write_arf(self, dataset, filename):
-        """Write effective area
+        """Write effective area.
 
         Parameters
         ----------
         dataset : `SpectrumDatasetOnOff`
-            Dataset to write
-        filename : str or `Path`
+            Dataset to write.
+        filename : str or `~pathlib.Path`
             Filename to use.
 
         """
@@ -182,17 +191,18 @@ class OGIPDatasetWriter(DatasetWriter):
             filename=filename,
             overwrite=self.overwrite,
             format=self.format.replace("ogip", "ogip-arf"),
+            checksum=self.checksum,
         )
 
     def to_counts_hdulist(self, dataset, is_bkg=False):
-        """Convert counts region map to hdulist
+        """Convert counts region map to hdulist.
 
         Parameters
         ----------
         dataset : `SpectrumDatasetOnOff`
-            Dataset to write
+            Dataset to write.
         is_bkg : bool
-            Whether to use counts off.
+            Whether to use counts off. Default is False.
         """
         counts = dataset.counts_off if is_bkg else dataset.counts
         acceptance = dataset.acceptance_off if is_bkg else dataset.acceptance
@@ -219,13 +229,13 @@ class OGIPDatasetWriter(DatasetWriter):
         return hdulist
 
     def write_pha(self, dataset, filename):
-        """Write counts file
+        """Write counts file.
 
         Parameters
         ----------
         dataset : `SpectrumDatasetOnOff`
-            Dataset to write
-        filename : str or `Path`
+            Dataset to write.
+        filename : str or `~pathlib.Path`
             Filename to use.
 
         """
@@ -235,20 +245,20 @@ class OGIPDatasetWriter(DatasetWriter):
             hdu = dataset.gti.to_table_hdu()
             hdulist.append(hdu)
 
-        hdulist.writeto(filename, overwrite=self.overwrite)
+        hdulist.writeto(filename, overwrite=self.overwrite, checksum=self.checksum)
 
     def write_bkg(self, dataset, filename):
-        """Write off counts file
+        """Write off counts file.
 
         Parameters
         ----------
         dataset : `SpectrumDatasetOnOff`
-            Dataset to write
-        filename : str or `Path`
+            Dataset to write.
+        filename : str or `~pathlib.Path`
             Filename to use.
         """
         hdulist = self.to_counts_hdulist(dataset, is_bkg=True)
-        hdulist.writeto(filename, overwrite=self.overwrite)
+        hdulist.writeto(filename, overwrite=self.overwrite, checksum=self.checksum)
 
 
 class OGIPDatasetReader(DatasetReader):
@@ -268,7 +278,7 @@ class OGIPDatasetReader(DatasetReader):
     Parameters
     ----------
     filename : str or `~pathlib.Path`
-        OGIP PHA file to read
+        OGIP PHA file to read.
     """
 
     tag = "ogip"
@@ -277,19 +287,19 @@ class OGIPDatasetReader(DatasetReader):
         self.filename = make_path(filename)
 
     def get_valid_path(self, filename):
-        """Get absolute or relative path
+        """Get absolute or relative path.
 
         The relative path is with respect to the name of the reference file.
 
         Parameters
         ----------
-        filename : str or `Path`
-            Filename
+        filename : str or `~pathlib.Path`
+            Filename.
 
         Returns
         -------
-        filename : `Path`
-            Valid path
+        filename : `~pathlib.Path`
+            Valid path.
         """
         filename = make_path(filename)
 
@@ -299,18 +309,18 @@ class OGIPDatasetReader(DatasetReader):
             return filename
 
     def get_filenames(self, pha_meta):
-        """Get filenames
+        """Get filenames.
 
         Parameters
         ----------
         pha_meta : dict
-            Meta data from the PHA file
+            Metadata from the PHA file.
 
         Returns
         -------
         filenames : dict
-            Dict with filenames of "arffile", "rmffile" (optional)
-            and "bkgfile" (optional)
+            Dictionary with filenames of "arffile", "rmffile" (optional)
+            and "bkgfile" (optional).
         """
         filenames = {"arffile": self.get_valid_path(pha_meta["ANCRFILE"])}
 
@@ -324,17 +334,17 @@ class OGIPDatasetReader(DatasetReader):
 
     @staticmethod
     def read_pha(filename):
-        """Read PHA file
+        """Read PHA file.
 
         Parameters
         ----------
-        filename : str or `Path`
-            PHA file name
+        filename : str or `~pathlib.Path`
+            PHA file name.
 
         Returns
         -------
         data : dict
-            Dict with counts, acceptance and mask_safe
+            Dictionary with counts, acceptance and mask_safe.
         """
         data = {}
 
@@ -355,17 +365,17 @@ class OGIPDatasetReader(DatasetReader):
 
     @staticmethod
     def read_bkg(filename):
-        """Read PHA background file
+        """Read PHA background file.
 
         Parameters
         ----------
-        filename : str or `Path`
-            PHA file name
+        filename : str or `~pathlib.Path`
+            PHA file name.
 
         Returns
         -------
         data : dict
-            Dict with counts_off and acceptance_off
+            Dictionary with counts_off and acceptance_off.
         """
         with fits.open(filename, memmap=False) as hdulist:
             counts_off = RegionNDMap.from_hdulist(hdulist, format="ogip")
@@ -376,19 +386,19 @@ class OGIPDatasetReader(DatasetReader):
 
     @staticmethod
     def read_rmf(filename, exposure):
-        """Read RMF file
+        """Read RMF file.
 
         Parameters
         ----------
-        filename : str or `Path`
-            PHA file name
+        filename : str or `~pathlib.Path`
+            PHA file name.
         exposure : `RegionNDMap`
-            Exposure map
+            Exposure map.
 
         Returns
         -------
         data : `EDispKernelMap`
-            Dict with edisp
+            Dictionary with edisp.
         """
         kernel = EDispKernel.read(filename)
         edisp = EDispKernelMap.from_edisp_kernel(kernel, geom=exposure.geom)
@@ -399,19 +409,19 @@ class OGIPDatasetReader(DatasetReader):
 
     @staticmethod
     def read_arf(filename, livetime):
-        """Read ARF file
+        """Read ARF file.
 
         Parameters
         ----------
-        filename : str or `Path`
-            PHA file name
+        filename : str or `~pathlib.Path`
+            PHA file name.
         livetime : `Quantity`
-            Livetime
+            Livetime.
 
         Returns
         -------
         data : `RegionNDMap`
-            Exposure map
+            Exposure map.
         """
         aeff = RegionNDMap.read(filename, format="ogip-arf")
         exposure = aeff * livetime
@@ -419,12 +429,12 @@ class OGIPDatasetReader(DatasetReader):
         return exposure
 
     def read(self):
-        """Read dataset
+        """Read dataset.
 
         Returns
         -------
         dataset : SpectrumDatasetOnOff
-            Spectrum dataset
+            Spectrum dataset.
         """
         kwargs = self.read_pha(self.filename)
         pha_meta = kwargs["counts"].meta

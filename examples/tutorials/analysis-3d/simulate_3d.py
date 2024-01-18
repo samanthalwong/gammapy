@@ -61,7 +61,7 @@ import matplotlib.pyplot as plt
 
 # %matplotlib inline
 from IPython.display import display
-from gammapy.data import Observation, observatory_locations
+from gammapy.data import FixedPointingInfo, Observation, observatory_locations
 from gammapy.datasets import MapDataset
 from gammapy.irf import load_irf_dict_from_file
 from gammapy.makers import MapDatasetMaker, SafeMaskMaker
@@ -92,7 +92,12 @@ irfs = load_irf_dict_from_file(
 
 # Define the observation parameters (typically the observation duration and the pointing position):
 livetime = 2.0 * u.hr
-pointing = SkyCoord(0, 0, unit="deg", frame="galactic")
+pointing_position = SkyCoord(0, 0, unit="deg", frame="galactic")
+# We want to simulate an observation pointing at a fixed position in the sky.
+# For this, we use the `FixedPointingInfo` class
+pointing = FixedPointingInfo(
+    fixed_icrs=pointing_position.icrs,
+)
 
 # Define map geometry for binned simulation
 energy_reco = MapAxis.from_edges(
@@ -135,7 +140,7 @@ print(models)
 ######################################################################
 # Now, comes the main part of dataset simulation. We create an in-memory
 # observation and an empty dataset. We then predict the number of counts
-# for the given model, and Poission fluctuate it using `fake()` to make
+# for the given model, and Poisson fluctuate it using `fake()` to make
 # a simulated counts maps. Keep in mind that it is important to specify
 # the `selection` of the maps that you want to produce
 #
@@ -156,7 +161,7 @@ dataset = maker.run(empty, obs)
 dataset = maker_safe_mask.run(dataset, obs)
 print(dataset)
 
-# Add the model on the dataset and Poission fluctuate
+# Add the model on the dataset and Poisson fluctuate
 dataset.models = models
 dataset.fake()
 # Do a print on the dataset - there is now a counts maps
@@ -171,8 +176,8 @@ print(dataset)
 #
 
 # To plot, eg, counts:
-plt.figure()
 dataset.counts.smooth(0.05 * u.deg).plot_interactive(add_cbar=True, stretch="linear")
+plt.show()
 
 
 ######################################################################
@@ -197,8 +202,9 @@ print(dataset.models)
 # %%time
 fit = Fit(optimize_opts={"print_level": 1})
 result = fit.run(datasets=[dataset])
-plt.figure()
+
 dataset.plot_residuals_spatial(method="diff/sqrt(model)", vmin=-0.5, vmax=0.5)
+plt.show()
 
 
 ######################################################################
@@ -218,5 +224,3 @@ print(
 #
 
 display(result.parameters.to_table())
-
-plt.show()

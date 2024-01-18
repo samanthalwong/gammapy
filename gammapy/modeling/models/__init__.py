@@ -8,20 +8,23 @@ from .cube import (
     TemplateNPredModel,
     create_fermi_isotropic_diffuse_model,
 )
+from .prior import GaussianPrior, Prior, UniformPrior
 from .spatial import (
     ConstantFluxSpatialModel,
     ConstantSpatialModel,
     DiskSpatialModel,
     GaussianSpatialModel,
     GeneralizedGaussianSpatialModel,
-    PointSpatialModel,
     PiecewiseNormSpatialModel,
+    PointSpatialModel,
     Shell2SpatialModel,
     ShellSpatialModel,
     SpatialModel,
+    TemplateNDSpatialModel,
     TemplateSpatialModel,
 )
 from .spectral import (
+    EBL_DATA_BUILTIN,
     BrokenPowerLawSpectralModel,
     CompoundSpectralModel,
     ConstantSpectralModel,
@@ -121,10 +124,12 @@ __all__ = [
     "TemplatePhaseCurveTemporalModel",
     "TemplateSpatialModel",
     "TemplateSpectralModel",
+    "TemplateNDSpatialModel",
     "TemplateNDSpectralModel",
     "TemplateNPredModel",
     "TEMPORAL_MODEL_REGISTRY",
     "TemporalModel",
+    "EBL_DATA_BUILTIN",
 ]
 
 
@@ -132,6 +137,7 @@ SPATIAL_MODEL_REGISTRY = Registry(
     [
         ConstantSpatialModel,
         TemplateSpatialModel,
+        TemplateNDSpatialModel,
         DiskSpatialModel,
         GaussianSpatialModel,
         GeneralizedGaussianSpatialModel,
@@ -185,6 +191,14 @@ TEMPORAL_MODEL_REGISTRY = Registry(
     ]
 )
 """Registry of temporal models classes."""
+
+PRIOR_REGISTRY = Registry(
+    [
+        UniformPrior,
+        GaussianPrior,
+    ]
+)
+"""Registry of prior classes."""
 
 MODEL_REGISTRY = Registry([SkyModel, FoVBackgroundModel, TemplateNPredModel])
 """Registry of model classes"""

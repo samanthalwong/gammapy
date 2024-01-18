@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 import pytest
 import numpy as np
+from numpy.testing import assert_allclose
 import astropy.units as u
 from astropy.io import fits
 from gammapy.data import DataStore
@@ -163,6 +164,11 @@ def test_data_store_from_events(data_store_dc1):
     data_store = DataStore.from_events_files([path])
     assert len(data_store.obs_table) == 1
     assert len(data_store.hdu_table) == 6
+    assert data_store.obs_table.meta["MJDREFI"] == 51544
+
+    path2 = "$GAMMAPY_DATA/hess-dl3-dr1/data/hess_dl3_dr1_obs_id_025511.fits.gz"
+    with pytest.raises(RuntimeError):
+        _ = DataStore.from_events_files([path, path2])
 
 
 @requires_data()
@@ -170,7 +176,7 @@ def test_data_store_maker_obs_table(data_store_dc1):
     table = data_store_dc1.obs_table
     assert table.__class__.__name__ == "ObservationTable"
     assert len(table) == 4
-    assert len(table.colnames) == 22
+    assert len(table.colnames) == 27
     assert table["CALDB"][0] == "1dc"
     assert table["IRF"][0] == "South_z20_50h"
 
@@ -237,16 +243,12 @@ def test_data_store_fixed_rad_max():
 
 
 @requires_data()
-def test_data_store_header_info_in_obs_info(data_store):
-    """Test information from the obs index header is propagated into obs_info"""
+def test_data_store_header_info_in_meta(data_store):
+    """Test information from the obs index header is propagated into meta"""
     obs = data_store.obs(obs_id=23523)
 
-    assert "MJDREFI" in obs.obs_info
-    assert "MJDREFF" in obs.obs_info
-    assert "GEOLON" in obs.obs_info
-    assert "GEOLAT" in obs.obs_info
-    # make sure we don't add the OBS_INDEX HDUCLAS
-    assert "HDUCLAS1" not in obs.obs_info
+    assert obs.meta.obs_info is not None
+    # TODO: restructure test once all elements are in place
 
 
 @requires_data()
@@ -271,7 +273,7 @@ def test_data_store_from_dir_no_obs_index(caplog, tmpdir):
     assert data_store.obs_table is None
     assert "No observation index table." in data_store.info(show=False)
 
-    assert obs.obs_info["ONTIME"] == 1687.0
+    assert_allclose(obs.meta.location.lon.deg, 16.500222)
     assert len(observations) == 2
 
     test_dir = tmpdir / "test"

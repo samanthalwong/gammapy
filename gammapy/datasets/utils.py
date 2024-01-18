@@ -10,16 +10,16 @@ def apply_edisp(input_map, edisp):
     ----------
     input_map : `~gammapy.maps.Map`
         The map to be convolved with the energy dispersion.
-        It must have an axis named "energy_true"
+        It must have an axis named "energy_true".
     edisp : `gammapy.irf.EDispKernel`
-        Energy dispersion matrix
+        Energy dispersion matrix.
 
     Returns
     -------
     map : `~gammapy.maps.Map`
         Map with energy dispersion applied.
     """
-    # TODO: either use sparse matrix mutiplication or something like edisp.is_diagonal
+    # TODO: either use sparse matrix multiplication or something like edisp.is_diagonal
     if edisp is not None:
         loc = input_map.geom.axes.index("energy_true")
         data = np.rollaxis(input_map.data, loc, len(input_map.data.shape))

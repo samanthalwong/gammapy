@@ -3,6 +3,7 @@ import pytest
 import numpy as np
 from numpy.testing import assert_allclose, assert_equal
 import astropy.units as u
+from astropy.io import fits
 from astropy.table import Table
 from astropy.time import Time
 from gammapy.data import GTI
@@ -172,7 +173,7 @@ def test_fit(spectrum_dataset):
     fit = Fit()
     result = fit.run(datasets=[spectrum_dataset])
     assert result.success
-    assert "minuit" in repr(result)
+    assert "minuit" in str(result)
 
     npred = spectrum_dataset.npred().data.sum()
     assert_allclose(npred, 907012.186399, rtol=1e-3)
@@ -587,6 +588,16 @@ class TestSpectrumOnOff:
         assert newdataset.counts_off is None
         assert newdataset.edisp is None
         assert newdataset.gti is None
+
+    def test_to_ogip_files_checksum(self, tmp_path):
+        dataset = self.dataset.copy(name="test")
+        dataset.write(tmp_path / "test.fits", format="ogip", checksum=True)
+
+        for file in ["test.fits", "test_arf.fits", "test_rmf.fits", "test_bkg.fits"]:
+            hdul = fits.open(tmp_path / file)
+            for hdu in hdul:
+                assert "CHECKSUM" in hdu.header
+                assert "DATASUM" in hdu.header
 
     def test_spectrum_dataset_onoff_fits_io(self, tmp_path):
         self.dataset.write(tmp_path / "test.fits", format="gadf")
@@ -1177,3 +1188,17 @@ class TestFit:
         profile = fit.stat_profile(datasets=[dataset], parameter="index")
         actual = values[np.argmin(profile["stat_scan"])]
         assert_allclose(actual, true_idx, rtol=0.01)
+
+
+def test_stat_sum():
+    axis = MapAxis.from_energy_bounds(0.1, 10, 5, unit="TeV")
+    geom = RegionGeom.create(None, axes=[axis])
+    dataset = SpectrumDatasetOnOff.create(geom)
+    dataset.counts_off = None
+
+    stat = dataset.stat_sum()
+    assert stat == 0
+
+    dataset.mask_safe.data[0] = True
+    with pytest.raises(AttributeError):
+        dataset.stat_sum()

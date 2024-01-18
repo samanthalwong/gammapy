@@ -1,9 +1,10 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 import numpy as np
 import astropy.units as u
-from astropy.table import Column, Table
-from gammapy.irf import EDispKernelMap, PSFMap
+from astropy.table import Table
 from gammapy.utils.cluster import standard_scaler
+
+__all__ = ["get_irfs_features"]
 
 
 def get_irfs_features(
@@ -15,38 +16,36 @@ def get_irfs_features(
     containment_fraction=0.68,
     apply_standard_scaler=False,
 ):
-    """Get features from irfs properties at a given position.
-    Used for observations clustering.
+    """Get features from IRFs properties at a given position. Used for observations clustering.
 
     Parameters
     ----------
     observations : `~gammapy.data.Observations`
-        Container holding a list of `~gammapy.data.Observation`
+        Container holding a list of `~gammapy.data.Observation`.
     energy_true : `~astropy.units.Quantity`
-        Energy true at which to compute the containment radius
-    position : `~astropy.coordinates.SkyCoord`
-        Sky position.
-    fixed_offset : `~astropy.coordinates.Angle`
-        Offset calculated from the pointing position.
-        If neither the position nor fixed_offset is specified,
+        Energy true at which to compute the containment radius.
+    position : `~astropy.coordinates.SkyCoord`, optional
+        Sky position. Default is None.
+    fixed_offset : `~astropy.coordinates.Angle`, optional
+        Offset calculated from the pointing position. Default is None.
+        If neither the `position` nor the `fixed_offset` is specified,
         it uses the position of the center of the map by default.
-    names : list of str
+    names : {"edisp-bias", "edisp-res", "psf-radius"}
         IRFs properties to be considered.
-        Available options are ["edisp-bias", "edisp-res", "psf-radius"]
-        (all used by default).
-    containment_fraction : float
+        Default is None. If None, all the features are computed.
+    containment_fraction : float, optional
         Containment_fraction to compute the `psf-radius`.
         Default is 68%.
-    standard_scaler : bool
+    apply_standard_scaler : bool, optional
         Compute standardize features by removing the mean and scaling to unit variance.
         Default is False.
 
     Returns
     -------
     features : `~astropy.table.Table`
-        Features table
-
+        Features table.
     """
+    from gammapy.irf import EDispKernelMap, PSFMap
 
     if names is None:
         names = ["edisp-bias", "edisp-res", "psf-radius"]
@@ -56,14 +55,9 @@ def get_irfs_features(
             "`position` and `fixed_offset` arguments are mutually exclusive"
         )
 
-    n_obs = len(observations)
-    n_features = len(names)
-    data = np.zeros((n_obs, n_features))
-    units = [u.Unit("")] * n_features
-    for (
-        ko,
-        obs,
-    ) in enumerate(observations):
+    rows = []
+
+    for obs in observations:
         psf_kwargs = dict(fraction=containment_fraction, energy_true=energy_true)
         if isinstance(obs.psf, PSFMap) and isinstance(obs.edisp, EDispKernelMap):
             if position is None:
@@ -86,18 +80,20 @@ def get_irfs_features(
                 offset = fixed_offset
             edisp_kernel = obs.edisp.to_edisp_kernel(offset)
             psf_kwargs["offset"] = offset
-        for kf, name in enumerate(names):
-            if name == "edisp-bias":
-                data[ko, kf] = edisp_kernel.get_bias(energy_true)
-            if name == "edisp-res":
-                data[ko, kf] = edisp_kernel.get_resolution(energy_true)
-            if name == "psf-radius":
-                containment_radius = obs.psf.containment_radius(**psf_kwargs).to("deg")
-                data[ko, kf] = containment_radius.value
-                units[kf] = u.deg
 
-    features = Table(data, names=names, units=units)
-    features.add_column(Column(observations.ids, name="obs_id"), index=0)
+        data = {}
+        for name in names:
+            if name == "edisp-bias":
+                data[name] = edisp_kernel.get_bias(energy_true)[0]
+            if name == "edisp-res":
+                data[name] = edisp_kernel.get_resolution(energy_true)[0]
+            if name == "psf-radius":
+                data[name] = obs.psf.containment_radius(**psf_kwargs).to("deg")
+            data["obs_id"] = obs.obs_id
+
+        rows.append(data)
+
+    features = Table(rows)
 
     if apply_standard_scaler:
         features = standard_scaler(features)

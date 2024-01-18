@@ -22,7 +22,7 @@ dependencies:
   - click
   - cython
   - numpy>1.20
-  - pydantic
+  - pydantic>=2.5
   - pyyaml
   - regions>=0.5
   - matplotlib>=3.4
@@ -48,11 +48,12 @@ dependencies:
   - reproject
   - sherpa
   # dev dependencies
-  - black
+  - black=22.6.0
   - codespell
   - flake8
   - isort
   - jinja2
+  - jupytext
   - nbsphinx
   - numdifftools
   - pandoc
@@ -78,3 +79,6 @@ dependencies:
   - memray
   - pip:
       - pytest-sphinx
+      - ray[default]>=2.9
+      - PyGithub
+      - pypandoc

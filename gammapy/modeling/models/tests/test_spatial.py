@@ -1,4 +1,5 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
+import logging
 import pytest
 import numpy as np
 from numpy.testing import assert_allclose
@@ -12,7 +13,7 @@ from regions import (
     PointSkyRegion,
     RectangleSkyRegion,
 )
-from gammapy.maps import Map, MapAxis, MapCoord, RegionGeom, WcsGeom
+from gammapy.maps import Map, MapAxis, MapCoord, RegionGeom, WcsGeom, WcsNDMap
 from gammapy.modeling.models import (
     ConstantSpatialModel,
     DiskSpatialModel,
@@ -24,14 +25,17 @@ from gammapy.modeling.models import (
     Shell2SpatialModel,
     ShellSpatialModel,
     SkyModel,
+    TemplateNDSpatialModel,
     TemplateSpatialModel,
 )
-from gammapy.utils.testing import mpl_plot_check, requires_data
+from gammapy.utils.testing import mpl_plot_check, requires_data, requires_dependency
 
 
 def test_sky_point_source():
     geom = WcsGeom.create(skydir=(2.4, 2.3), npix=(10, 10), binsz=0.3)
     model = PointSpatialModel(lon_0="2.5 deg", lat_0="2.5 deg", frame="icrs")
+
+    assert model.is_energy_dependent is False
 
     assert model.evaluation_radius.unit == "deg"
     assert_allclose(model.evaluation_radius.value, 0)
@@ -332,6 +336,7 @@ def test_sky_diffuse_constant():
 
 
 @requires_data()
+@requires_dependency("ipywidgets")
 def test_sky_diffuse_map(caplog):
     filename = "$GAMMAPY_DATA/catalogs/fermi/Extended_archive_v18/Templates/RXJ1713_2016_250GeV.fits"  # noqa: E501
     model = TemplateSpatialModel.read(filename, normalize=False)
@@ -363,8 +368,25 @@ def test_sky_diffuse_map(caplog):
     with pytest.raises(TypeError):
         model.plot_grid()
 
+    # change central position
+    model.lon_0.value = 12.0
+    model.lat_0.value = 6
+    val = model([11.8, 12.8] * u.deg, 6.1 * u.deg)
+    assert_allclose(val.value, [2850.8103, 89.629447], rtol=1e-3)
+
+    # test to and from dict
+    dict1 = model.to_dict()
+    model2 = TemplateSpatialModel.from_dict(dict1)
+    assert_allclose(model2.lon_0.quantity, 12.0 * u.deg, rtol=1e-3)
+
+    # test dict without parameters
+    dict1["spatial"].pop("parameters")
+    model3 = TemplateSpatialModel.from_dict(dict1)
+    assert_allclose(model3.lon_0.quantity, 258.388 * u.deg, rtol=1e-3)
+
 
 @requires_data()
+@requires_dependency("ipywidgets")
 def test_sky_diffuse_map_3d():
     filename = "$GAMMAPY_DATA/fermi-3fhl-gc/gll_iem_v06_gc.fits.gz"
     model = TemplateSpatialModel.read(filename, normalize=False)
@@ -385,6 +407,12 @@ def test_sky_diffuse_map_3d():
 
     with pytest.raises(TypeError):
         model.plot()
+
+    with mpl_plot_check():
+        model.plot_grid()
+
+    with mpl_plot_check():
+        model.plot_interactive()
 
 
 def test_sky_diffuse_map_normalize():
@@ -427,6 +455,31 @@ def test_sky_diffuse_map_copy():
     assert np.all(model.map.data == model_copy.map.data)
 
 
+def test_sky_diffuse_map_empty(caplog):
+    # define model map with 0 values
+    model_map = Map.create(map_type="wcs", width=(1, 1), binsz=0.5, unit="sr-1")
+
+    with caplog.at_level(logging.WARNING):
+        model = TemplateSpatialModel(model_map, normalize=True)
+        assert "Map values are all zeros. Check and fix this!" in [
+            _.message for _ in caplog.records
+        ]
+        assert np.all(np.isfinite(model.map.data))
+
+    axes = [MapAxis.from_energy_bounds("1 TeV", "10 TeV", nbin=2)]
+    model_map = Map.create(
+        map_type="wcs", width=(1, 1), binsz=0.5, unit="sr-1", axes=axes
+    )
+    model_map.data[0, :, :] = 1
+    with caplog.at_level(logging.WARNING):
+        model = TemplateSpatialModel(model_map, normalize=True)
+        assert (
+            "Map values are all zeros in at least one energy bin. Check and fix this!"
+            in [_.message for _ in caplog.records]
+        )
+        assert np.all(np.isfinite(model.map.data))
+
+
 def test_evaluate_on_fk5_map():
     # Check if spatial model can be evaluated on a map with FK5 frame
     # Regression test for GH-2402
@@ -465,7 +518,32 @@ def test_spatial_model_plot():
         ax = model.plot()
 
     with mpl_plot_check():
-        model.plot_error(ax=ax)
+        model.plot_error(ax=ax, which="all")
+
+
+models_test = [
+    (GaussianSpatialModel, "sigma"),
+    (GeneralizedGaussianSpatialModel, "r_0"),
+    (DiskSpatialModel, "r_0"),
+]
+
+
+@pytest.mark.parametrize(("model_class", "extension_param"), models_test)
+def test_spatial_model_plot_error(model_class, extension_param):
+    model = model_class(lon="0d", lat="0d", sigma=0.2 * u.deg, frame="galactic")
+    model.lat_0.error = 0.04
+    model.lon_0.error = 0.02
+    model.parameters[extension_param].error = 0.04
+    model.e.error = 0.002
+
+    empty_map = Map.create(
+        skydir=model.position, frame=model.frame, width=1, binsz=0.02
+    )
+    with mpl_plot_check():
+        ax = empty_map.plot()
+        model.plot_error(ax=ax, which="all")
+        model.plot_error(ax=ax, which="position")
+        model.plot_error(ax=ax, which="extension")
 
 
 def test_integrate_region_geom():
@@ -544,8 +622,8 @@ def test_templatemap_clip():
     assert_allclose(val, 0, rtol=0.0001)
 
 
-def test_piecewise_spatial_model():
-    geom = WcsGeom.create(skydir=(2.4, 2.3), npix=(2, 2), binsz=0.3, frame="galactic")
+def test_piecewise_spatial_model_gc():
+    geom = WcsGeom.create(skydir=(0, 0), npix=(2, 2), binsz=0.3, frame="galactic")
     coords = MapCoord.create(geom.footprint)
     coords["lon"] *= u.deg
     coords["lat"] *= u.deg
@@ -572,6 +650,41 @@ def test_piecewise_spatial_model():
 
     assert_allclose(new_model.evaluate_geom(geom.to_image()), expected, atol=1e-5)
 
+    assert_allclose(
+        model.evaluate(-0.1 * u.deg, 2.3 * u.deg),
+        model.evaluate(359.9 * u.deg, 2.3 * u.deg),
+    )
+
+
+def test_piecewise_spatial_model():
+    for lon in range(-360, 360):
+        geom = WcsGeom.create(
+            skydir=(lon, 2.3), npix=(2, 2), binsz=0.3, frame="galactic"
+        )
+        coords = MapCoord.create(geom.footprint)
+        coords["lon"] *= u.deg
+        coords["lat"] *= u.deg
+
+        model = PiecewiseNormSpatialModel(coords, frame="galactic")
+
+        assert_allclose(model(*geom.to_image().center_coord), 1.0)
+
+        norms = np.arange(coords.shape[0])
+
+        model = PiecewiseNormSpatialModel(coords, norms, frame="galactic")
+
+        expected = np.array([[0, 3], [1, 2]])
+        assert_allclose(model(*geom.to_image().get_coord()), expected, atol=1e-5)
+
+        assert_allclose(model.evaluate_geom(geom.to_image()), expected, atol=1e-5)
+
+        assert_allclose(model.evaluate_geom(geom), expected, atol=1e-5)
+
+        model_dict = model.to_dict()
+        new_model = PiecewiseNormSpatialModel.from_dict(model_dict)
+
+        assert_allclose(new_model.evaluate_geom(geom.to_image()), expected, atol=1e-5)
+
 
 def test_piecewise_spatial_model_3d():
     axis = MapAxis.from_energy_bounds("1 TeV", "10 TeV", nbin=3)
@@ -582,3 +695,45 @@ def test_piecewise_spatial_model_3d():
 
     with pytest.raises(ValueError):
         PiecewiseNormSpatialModel(coords, frame="galactic")
+
+
+@requires_data()
+def test_template_ND(tmpdir):
+    filename = "$GAMMAPY_DATA/catalogs/fermi/Extended_archive_v18/Templates/RXJ1713_2016_250GeV.fits"  # noqa: E501
+    map_ = Map.read(filename)
+    map_.data[map_.data < 0] = 0
+    geom2d = map_.geom
+    norm = MapAxis.from_nodes(range(0, 11, 2), interp="lin", name="norm", unit="")
+    cste = MapAxis.from_bounds(-1, 1, 3, interp="lin", name="cste", unit="")
+    geom = geom2d.to_cube([norm, cste])
+
+    nd_map = WcsNDMap(geom)
+
+    for kn, norm_value in enumerate(norm.center):
+        for kp, cste_value in enumerate(cste.center):
+            nd_map.data[kp, kn, :, :] = norm_value * map_.data + cste_value
+
+    template = TemplateNDSpatialModel(nd_map, interp_kwargs={"values_scale": "lin"})
+    assert len(template.parameters) == 2
+    assert_allclose(template.parameters["norm"].value, 5)
+    assert_allclose(template.parameters["cste"].value, 0)
+    assert_allclose(
+        template.evaluate(
+            geom2d.center_skydir.ra, geom2d.center_skydir.dec, norm=0, cste=0
+        ),
+        [0],
+    )
+    assert_allclose(template.evaluate_geom(geom2d), 5 * map_.data, rtol=0.03, atol=10)
+
+    template.parameters["norm"].value = 2
+    template.parameters["cste"].value = 0
+    assert_allclose(template.evaluate_geom(geom2d), 2 * map_.data, rtol=0.03, atol=10)
+
+    template.filename = str(tmpdir / "template_ND.fits")
+    template.write()
+    dict_ = template.to_dict()
+    template_new = TemplateNDSpatialModel.from_dict(dict_)
+    assert_allclose(template_new.map.data, nd_map.data)
+    assert len(template_new.parameters) == 2
+    assert template_new.parameters["norm"].value == 2
+    assert template_new.parameters["cste"].value == 0

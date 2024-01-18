@@ -36,6 +36,18 @@ def simple_dataset():
 
 
 @pytest.fixture
+def simple_dataset_mask_safe():
+    axis = MapAxis.from_energy_bounds(0.1, 10, 3, unit="TeV")
+    geom = WcsGeom.create(npix=20, binsz=0.02, axes=[axis])
+    dataset = MapDataset.create(geom)
+    dataset.mask_safe += np.ones(dataset.data_shape, dtype=bool)
+    dataset.mask_safe.data[0, :, :] = False
+    dataset.counts += 2
+    dataset.background += 1
+    return dataset
+
+
+@pytest.fixture
 def simple_dataset_on_off():
     axis = MapAxis.from_energy_bounds(0.1, 10, 2, unit="TeV")
     geom = WcsGeom.create(npix=20, binsz=0.02, axes=[axis])
@@ -141,6 +153,35 @@ def test_significance_map_estimator_map_dataset(simple_dataset):
     assert_allclose(result["npred_excess_errn"].data[0, 10, 10], 12.396716, atol=1e-3)
     assert_allclose(result["npred_excess_ul"].data[0, 10, 10], 107.806275, atol=1e-3)
 
+    assert_allclose(result["norm_sensitivity"].data[0, 10, 10], 48.997699, atol=1e-3)
+    assert_allclose(result["flux_sensitivity"].data[0, 10, 10], 4.850772e-10, rtol=1e-4)
+
+    estimator = ExcessMapEstimator(
+        0.1 * u.deg,
+        selection_optional=["sensitivity"],
+        apply_threshold_sensitivity=True,
+    )
+
+    assert_allclose(result["norm_sensitivity"].data[0, 10, 10], 48.997699, atol=1e-3)
+    assert_allclose(result["flux_sensitivity"].data[0, 10, 10], 4.850772e-10, rtol=1e-3)
+
+
+def test_significance_map_estimator_map_dataset_mask_safe(simple_dataset_mask_safe):
+    simple_dataset_mask_safe.exposure = None
+    estimator = ExcessMapEstimator(0.1 * u.deg, selection_optional=["all"])
+
+    result = estimator.run(simple_dataset_mask_safe)
+
+    assert_allclose(result["npred"].data[0, 10, 10], 324)
+    assert_allclose(result["npred_excess"].data[0, 10, 10], 162)
+    assert_allclose(result["npred_background"].data[0, 10, 10], 162)
+    assert_allclose(result["sqrt_ts"].data[0, 10, 10], 11.187468, atol=1e-5)
+
+    assert_allclose(result["npred_excess_err"].data[0, 10, 10], 18.0, atol=1e-3)
+    assert_allclose(result["npred_excess_errp"].data[0, 10, 10], 18.334, atol=1e-3)
+    assert_allclose(result["npred_excess_errn"].data[0, 10, 10], 17.668, atol=1e-3)
+    assert_allclose(result["npred_excess_ul"].data[0, 10, 10], 199.345, atol=1e-3)
+
 
 def test_significance_map_estimator_map_dataset_exposure(simple_dataset):
     simple_dataset.exposure += 1e10 * u.cm**2 * u.s
@@ -163,6 +204,7 @@ def test_significance_map_estimator_map_dataset_exposure(simple_dataset):
 
     assert_allclose(result["npred_excess"].data.sum(), 19733.602, rtol=1e-3)
     assert_allclose(result["sqrt_ts"].data[0, 10, 10], 4.217129, rtol=1e-3)
+    assert_allclose(result["flux_sensitivity"].data[0, 10, 10], 5.742761e-09, rtol=1e-3)
 
     # without mask safe
     simple_dataset_no_mask = MapDataset(
@@ -178,6 +220,7 @@ def test_significance_map_estimator_map_dataset_exposure(simple_dataset):
     result_no_mask = estimator.run(simple_dataset_no_mask)
     assert_allclose(result_no_mask["npred_excess"].data.sum(), 19733.602, rtol=1e-3)
     assert_allclose(result_no_mask["sqrt_ts"].data[0, 10, 10], 4.217129, rtol=1e-3)
+    assert_allclose(result["flux_sensitivity"].data[0, 10, 10], 5.742761e-09, rtol=1e-3)
 
 
 def test_excess_map_estimator_map_dataset_on_off_no_correlation(
@@ -287,7 +330,6 @@ def test_excess_map_estimator_map_dataset_on_off_reco_exposure(
     simple_dataset_on_off,
 ):
 
-    # TODO: this has never worked...
     model = SkyModel(
         PowerLawSpectralModel(amplitude="1e-9 cm-2 s-1TeV-1"),
         GaussianSpatialModel(

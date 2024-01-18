@@ -60,7 +60,7 @@ import matplotlib.pyplot as plt
 # -----
 #
 from IPython.display import display
-from gammapy.data import Observation, observatory_locations
+from gammapy.data import FixedPointingInfo, Observation, observatory_locations
 from gammapy.datasets import Datasets, SpectrumDataset, SpectrumDatasetOnOff
 from gammapy.irf import load_irf_dict_from_file
 from gammapy.makers import SpectrumDatasetMaker
@@ -84,14 +84,19 @@ check_tutorials_setup()
 # the livetime, the offset, the assumed integration radius, the energy
 # range to perform the simulation for and the choice of spectral model. We
 # then use an in-memory observation which is convolved with the IRFs to
-# get the predicted number of counts. This is Poission fluctuated using
+# get the predicted number of counts. This is Poisson fluctuated using
 # the `fake()` to get the simulated counts for each observation.
 #
 
 # Define simulation parameters parameters
 livetime = 1 * u.h
 
-pointing = SkyCoord(0, 0, unit="deg", frame="galactic")
+pointing_position = SkyCoord(0, 0, unit="deg", frame="galactic")
+# We want to simulate an observation pointing at a fixed position in the sky.
+# For this, we use the `FixedPointingInfo` class
+pointing = FixedPointingInfo(
+    fixed_icrs=pointing_position.icrs,
+)
 offset = 0.5 * u.deg
 
 # Reconstructed and true energy axis
@@ -104,7 +109,9 @@ energy_axis_true = MapAxis.from_edges(
 
 on_region_radius = Angle("0.11 deg")
 
-center = pointing.directional_offset_by(position_angle=0 * u.deg, separation=offset)
+center = pointing_position.directional_offset_by(
+    position_angle=0 * u.deg, separation=offset
+)
 on_region = CircleSkyRegion(center=center, radius=on_region_radius)
 
 # Define spectral model - a simple Power Law in this case
@@ -119,7 +126,7 @@ model = SkyModel(spectral_model=model_simu, name="source")
 
 ######################################################################
 # Load the IRFs
-# In this simulation, we use the CTA-1DC irfs shipped with gammapy.
+# In this simulation, we use the CTA-1DC IRFs shipped with Gammapy.
 irfs = load_irf_dict_from_file(
     "$GAMMAPY_DATA/cta-1dc/caldb/data/cta/1dc/bcf/South_z20_50h/irf_file.fits"
 )
@@ -164,10 +171,9 @@ print(dataset)
 #
 # To do an on off spectral analysis, which is the usual science case, the
 # standard would be to use `SpectrumDatasetOnOff`, which uses the
-# acceptance to fake off-counts. Please also refer to :doc:`simulations in
-# the absence of a background model
-# <spectral_analysis_rad_max.html#dataset-simulations>`
-# for simulations based on observations of real off counts.
+# acceptance to fake off-counts. Please also refer to the `Dataset simulations`
+# section in the :doc:`/tutorials/analysis-1d/spectral_analysis_rad_max` tutorial,
+# dealing with simulations based on observations of real off counts.
 #
 
 dataset_on_off = SpectrumDatasetOnOff.from_spectrum_dataset(
@@ -209,6 +215,7 @@ axes[1].hist(table["counts_off"])
 axes[1].set_xlabel("Counts Off")
 axes[2].hist(table["excess"])
 axes[2].set_xlabel("excess")
+plt.show()
 
 
 ######################################################################

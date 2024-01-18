@@ -15,7 +15,7 @@ from gammapy.maps import (
     WcsGeom,
     WcsNDMap,
 )
-from gammapy.utils.testing import mpl_plot_check
+from gammapy.utils.testing import modify_unit_order_astropy_5_3, mpl_plot_check
 
 pytest.importorskip("healpy")
 
@@ -55,7 +55,7 @@ def test_map_copy(binsz, width, map_type, skydir, axes, unit):
     )
 
     m_copy = m.copy()
-    assert repr(m) == repr(m_copy)
+    assert str(m) == str(m_copy)
 
     m_copy = m.copy(unit="cm-2 s-1")
     assert m_copy.unit == "cm-2 s-1"
@@ -244,7 +244,7 @@ def test_map_properties():
     assert isinstance(m.unit, u.CompositeUnit)
     assert m._unit == u.one
     m._unit = u.Unit("cm-2 s-1")
-    assert m.unit.to_string() == "1 / (cm2 s)"
+    assert m.unit.to_string() == modify_unit_order_astropy_5_3("1 / (cm2 s)")
 
     assert isinstance(m.meta, dict)
     m.meta = {"spam": 42}
@@ -285,7 +285,6 @@ map_arithmetics_args = [("wcs"), ("hpx")]
 
 @pytest.mark.parametrize(("map_type"), map_arithmetics_args)
 def test_map_arithmetics(map_type):
-
     m1 = Map.create(binsz=0.1, width=1.0, map_type=map_type, skydir=(0, 0), unit="m2")
 
     m2 = Map.create(binsz=0.1, width=1.0, map_type=map_type, skydir=(0, 0), unit="m2")
@@ -388,10 +387,7 @@ def test_arithmetics_inconsistent_geom():
         m_wcs += m_hpx
 
 
-# TODO: correct serialization for lin axis for energy
-# map_serialization_args = [("log"), ("lin")]
-
-map_serialization_args = [("log")]
+map_serialization_args = [("log"), ("lin")]
 
 
 @pytest.mark.parametrize(("interp"), map_serialization_args)
@@ -716,6 +712,37 @@ def test_map_reproject_wcs_to_wcs_with_axes():
         ref = int(idx[1] / factor) + 0.5 * int(idx[0] / factor)
         if np.any(data > 0):
             assert_allclose(np.nanmean(data[data > 0]), ref)
+
+
+def test_map_reproject_by_image():
+    axis = MapAxis.from_bounds(
+        1.0, 10.0, 3, interp="log", name="energy_true", node_type="center"
+    )
+    axis2 = MapAxis.from_bounds(
+        1.0, 10.0, 8, interp="log", name="energy", node_type="center"
+    )
+    geom_wcs = WcsGeom.create(skydir=(0, 0), npix=(11, 11), binsz=10, frame="galactic")
+
+    geom_hpx = HpxGeom.create(binsz=10, frame="galactic", axes=[axis])
+    geom_hpx_wrong = HpxGeom.create(binsz=10, frame="galactic", axes=[axis, axis2])
+
+    m = HpxNDMap(geom_hpx_wrong)
+    m.reproject_by_image(geom_wcs)
+    assert len(m.geom.axes) == 2
+
+    data = np.arange(3 * 768).reshape(geom_hpx.data_shape)
+    m = HpxNDMap(geom_hpx, data=data)
+    geom_wcs_wrong = WcsGeom.create(
+        skydir=(0, 0), npix=(11, 11), binsz=10, axes=[axis], frame="galactic"
+    )
+    with pytest.raises(TypeError):
+        m.reproject_by_image(geom_wcs_wrong)
+
+    m_r = m.reproject_by_image(geom_wcs)
+    actual = m_r.get_by_coord(
+        {"lon": 0, "lat": 0, "energy_true": [1.0, 3.16227766, 10.0]}
+    )
+    assert_allclose(actual, [287.5, 1055.5, 1823.5], rtol=1e-3)
 
 
 def test_wcsndmap_reproject_allsky_car():

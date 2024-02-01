@@ -5,6 +5,7 @@ from astropy.coordinates import AltAz, Angle, SkyCoord
 from astropy.table import Table
 from astropy.units import Quantity, Unit
 from gammapy.data.metadata import ObservationMetaData
+from gammapy.utils.fits import earth_location_from_dict
 from gammapy.utils.metadata import ObsInfoMetaData, PointingInfoMetaData, TargetMetaData
 from gammapy.utils.regions import SphericalCircleSkyRegion
 from gammapy.utils.scripts import make_path
@@ -98,6 +99,8 @@ class ObservationTable(Table):
         kwargs["target"] = TargetMetaData(
             name=select[0].get("OBJECT", None), position=position
         )
+
+        kwargs["location"] = earth_location_from_dict(self.meta)
 
         return ObservationMetaData(**kwargs)
 

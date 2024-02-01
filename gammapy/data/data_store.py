@@ -13,6 +13,7 @@ from gammapy.utils.pbar import progress_bar
 from gammapy.utils.scripts import make_path
 from gammapy.utils.testing import Checker
 from .hdu_index_table import HDUIndexTable
+from .metadata import ObservationMetaData
 from .obs_table import ObservationTable, ObservationTableChecker
 from .observations import Observation, ObservationChecker, Observations
 
@@ -333,6 +334,19 @@ class DataStore:
         if len(missing_hdus) > 0:
             raise MissingRequiredHDU(
                 f"Required HDUs {missing_hdus} not found in observation {obs_id}"
+            )
+
+        if "events" in kwargs.keys():
+            kwargs["meta"] = ObservationMetaData.from_header(
+                kwargs["events"].get_hdu().header
+            )
+        elif self.obs_table is not None:
+            kwargs["meta"] = self.obs_table._get_obs_id_meta(obs_id)
+        else:
+            from gammapy.utils.metadata import ObsInfoMetaData
+
+            kwargs["meta"] = ObservationMetaData(
+                obs_info=ObsInfoMetaData(obs_id=obs_id)
             )
 
         # TODO: right now, gammapy doesn't support using the pointing table of GADF

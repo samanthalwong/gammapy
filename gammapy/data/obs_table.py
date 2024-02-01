@@ -1,9 +1,11 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 from collections import namedtuple
 import numpy as np
-from astropy.coordinates import Angle, SkyCoord
+from astropy.coordinates import AltAz, Angle, SkyCoord
 from astropy.table import Table
 from astropy.units import Quantity, Unit
+from gammapy.data.metadata import ObservationMetaData
+from gammapy.utils.metadata import ObsInfoMetaData, PointingInfoMetaData, TargetMetaData
 from gammapy.utils.regions import SphericalCircleSkyRegion
 from gammapy.utils.scripts import make_path
 from gammapy.utils.testing import Checker
@@ -57,6 +59,47 @@ class ObservationTable(Table):
     def time_stop(self):
         """Observation stop time as a `~astropy.time.Time` object."""
         return self.time_ref + Quantity(self["TSTOP"], "second")
+
+    def _get_obs_id_meta(self, obs_id):
+        """Build a `~gammapy.data.ObservationMetaData` for the selected obs_id and fill it with table entry.
+
+        Parameters
+        ----------
+        obs_id : int
+            selected observation ID.
+
+        Returns
+        -------
+        meta : `~gammapy.data.ObservationMetaData`
+            the resulting metadta object.
+        """
+        select = self.select_obs_id(obs_id)
+
+        kwargs = {}
+        altaz_mean = None
+        if set(["ALT_PNT", "AZ_PNT"]).issubset(self.colnames):
+            altaz_mean = AltAz(alt=select["ALT_PNT"], az=select["AZ_PNT"])[0]
+
+        kwargs["pointing"] = PointingInfoMetaData(
+            radec_mean=select.pointing_radec[0], altaz_mean=altaz_mean
+        )
+
+        kwargs["obs_info"] = ObsInfoMetaData(
+            obs_id=obs_id, observation_mode=self[0].get("OBS_MODE", None)
+        )
+
+        try:
+            position = SkyCoord(
+                self["RA_PNT"][0], self["DEC_PNT"][0], unit="deg", frame="icrs"
+            )
+        except KeyError:
+            position = None
+
+        kwargs["target"] = TargetMetaData(
+            name=select[0].get("OBJECT", None), position=position
+        )
+
+        return ObservationMetaData(**kwargs)
 
     def select_obs_id(self, obs_id):
         """Get `~gammapy.data.ObservationTable` containing only ``obs_id``.

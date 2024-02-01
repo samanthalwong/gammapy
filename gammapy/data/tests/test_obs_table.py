@@ -1,6 +1,7 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 import pytest
 import numpy as np
+from numpy.testing import assert_allclose
 from astropy.coordinates import AltAz, Angle, SkyCoord
 from astropy.time import Time, TimeDelta
 from astropy.units import Quantity
@@ -311,6 +312,17 @@ def test_select_sky_regions():
     )
     obs_table = obs_table.select_observations(selection)
     assert len(obs_table) == 30
+
+
+@requires_data()
+def test_observation_table_meta():
+    path = "$GAMMAPY_DATA/hess-dl3-dr1/obs-index.fits.gz"
+    obs_table = ObservationTable.read(path)
+    meta = obs_table._get_obs_id_meta(23523)
+
+    assert meta.obs_info.obs_id == 23523
+    assert meta.target.name == "Crab Nebula"
+    assert_allclose(meta.pointing.radec_mean.ra.deg, 83.6333313)
 
 
 @requires_data()

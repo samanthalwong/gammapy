@@ -1,0 +1,36 @@
+# mapaxis_schema.yaml
+
+%YAML 1.1
+---
+$schema: "http://stsci.edu/schemas/yaml-schema/draft-01"
+id: "http://gammapy.org/schemas/mapaxis"
+tag: "tag:gammapy.org,2024:mapaxis"
+title: "Gammapy MapAxis Schema"
+description: "ASDF schema for Gammapy MapAxis class."
+
+type: "object"
+properties:
+  name:
+    type: "string"
+    description: "Name of the axis."
+  nodes:
+    type: "array"
+    items:
+      type: "number"
+    description: "List of bin edges or nodes defining the axis."
+  interpolation_mode:
+    type: "string"
+    enum: ["linear", "log", "sqrt", "power_law", "log_spline", "linear_spline"]
+    description: "Interpolation mode for the axis."
+  bin_name:
+    type: "string"
+    description: "Name of the binning scheme used."
+  unit:
+    type: "string"
+    description: "Unit of the axis."
+  metadata:
+    type: "object"
+    additionalProperties: true
+    description: "Additional metadata associated with the axis."
+required: ["nodes"]
+additionalProperties: false

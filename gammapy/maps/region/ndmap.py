@@ -57,6 +57,37 @@ class RegionNDMap(Map):
         self.meta = meta
         self._unit = u.Unit(unit)
 
+    @property
+    def data(self):
+        return self._data
+
+    @data.setter
+    def data(self, value):
+        """Set data.
+
+        Parameters
+        ----------
+        value : array-like
+            Data array.
+        """
+        if np.isscalar(value):
+            value = value * np.ones(self.geom.data_shape, dtype=type(value))
+
+        if isinstance(value, u.Quantity):
+            raise TypeError("Map data must be a Numpy array. Set unit separately")
+
+        if not value.shape == self.geom.data_shape:
+            if len(value.shape) == len(self.geom.data_shape) - 2:
+                value = value[:, np.newaxis, np.newaxis]
+            else:
+                raise ValueError("Incorrect shape.")
+
+        #        if not value.shape == self.geom.data_shape:
+        #            raise ValueError("Incorrect shape.")
+        #            value = value.reshape(self.geom.data_shape)
+
+        self._data = value
+
     def plot(self, ax=None, axis_name=None, **kwargs):
         """Plot the data contained in region map along the non-spatial axis.
 

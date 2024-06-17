@@ -379,8 +379,15 @@ class EDispKernelMap(IRFMap):
 
             kernel_map = self.edisp_map.to_region_nd_map(region=position)
 
+        target_names = ["energy_true", "energy"]
+        extra_axes_names = [
+            name
+            for name in set(kernel_map.geom.axes.names).difference(set(target_names))
+        ]
+        target_names += extra_axes_names
+
         return EDispKernel(
-            axes=kernel_map.geom.axes[["energy_true", "energy"]],
+            axes=kernel_map.geom.axes[target_names],
             data=kernel_map.data[..., 0, 0],
         )
 

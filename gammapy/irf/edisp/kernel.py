@@ -58,6 +58,7 @@ class EDispKernel(IRF):
     tag = "edisp_kernel"
     required_axes = ["energy_true", "energy"]
     default_interp_kwargs = dict(bounds_error=False, fill_value=0, method="nearest")
+    allow_extra = True
     """Default Interpolation kwargs for `~IRF`. Fill zeros and do not
     interpolate"""
 

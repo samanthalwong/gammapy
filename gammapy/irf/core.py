@@ -62,6 +62,7 @@ class IRF(metaclass=abc.ABCMeta):
         bounds_error=False,
         fill_value=0.0,
     )
+    allow_extra = False
 
     def __init__(
         self,
@@ -73,8 +74,9 @@ class IRF(metaclass=abc.ABCMeta):
         meta=None,
         interp_kwargs=None,
     ):
+        print(self.allow_extra)
         axes = MapAxes(axes)
-        axes.assert_names(self.required_axes)
+        axes.assert_names(self.required_axes, allow_extra=self.allow_extra)
         self._axes = axes
         self._fov_alignment = FoVAlignment(fov_alignment)
         self._is_pointlike = is_pointlike

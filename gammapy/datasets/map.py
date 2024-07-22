@@ -420,7 +420,6 @@ class MapDataset(Dataset):
             raise ValueError(
                 f"'psf' must be a 'PSFMap' or `HDULocation` object, got {type(psf)}"
             )
-
         self.psf = psf
 
         if edisp and not isinstance(edisp, (EDispMap, EDispKernelMap, HDULocation)):
@@ -438,6 +437,17 @@ class MapDataset(Dataset):
             self._meta = MapDatasetMetaData()
         else:
             self._meta = meta
+
+    @property
+    def _psf_kernel(self):
+        """Precompute PSFkernel if there is only one spatial bin in the PSFmap"""
+        if self.psf and self.psf.has_single_spatial_bin:
+            if self.psf.energy_name == "energy_true":
+                map_ref = self.exposure
+            else:
+                map_ref = self.counts
+            if map_ref and not map_ref.geom.is_region:
+                return self.psf.get_psf_kernel(map_ref.geom)
 
     @property
     def meta(self):
@@ -539,15 +549,16 @@ class MapDataset(Dataset):
     def models(self, models):
         """Models setter."""
         self._evaluators = {}
-
         if models is not None:
             models = DatasetModels(models)
             models = models.select(datasets_names=self.name)
-
+            if models:
+                psf = self._psf_kernel
             for model in models:
                 if not isinstance(model, FoVBackgroundModel):
                     evaluator = MapEvaluator(
                         model=model,
+                        psf=psf,
                         evaluation_mode=EVALUATION_MODE,
                         gti=self.gti,
                         use_cache=USE_NPRED_CACHE,
@@ -930,10 +941,17 @@ class MapDataset(Dataset):
 
         if "migra" in geom.axes.names:
             geom = geom.squash("migra")
-            mask_safe_edisp = self.mask_safe_image.interp_to_geom(geom.to_image())
+            mask_safe_edisp = self.mask_safe_image.interp_to_geom(
+                geom.to_image(), fill_value=None
+            )
             return mask_safe_edisp.to_cube(geom.axes)
 
-        return self.mask_safe.interp_to_geom(geom)
+        # allow extrapolation only along spatial dimension
+        # to support case where mask_safe geom and irfs geom are different
+        geom_same_axes = geom.to_image().to_cube(self.mask_safe.geom.axes)
+        mask_safe_edisp = self.mask_safe.interp_to_geom(geom_same_axes, fill_value=None)
+        mask_safe_edisp = mask_safe_edisp.interp_to_geom(geom)
+        return mask_safe_edisp
 
     def to_masked(self, name=None, nan_to_num=True):
         """Return masked dataset.
@@ -957,8 +975,11 @@ class MapDataset(Dataset):
     def stack(self, other, nan_to_num=True):
         r"""Stack another dataset in place. The original dataset is modified.
 
-        Safe mask is applied to compute the stacked counts data. Counts outside
-        each dataset safe mask are lost.
+        Safe mask is applied to the other dataset to compute the stacked counts data.
+        Counts outside the safe mask are lost.
+
+        Note that the masking is not applied to the current dataset. If masking needs
+        to be applied to it, use `~gammapy.MapDataset.to_masked()` first.
 
         The stacking of 2 datasets is implemented as follows. Here, :math:`k`
         denotes a bin in reconstructed energy and :math:`j = {1,2}` is the dataset number.
@@ -987,6 +1008,7 @@ class MapDataset(Dataset):
 
             \overline{\epsilon_k} = \epsilon_{1k} OR \epsilon_{2k}.
 
+        For details, see :ref:`stack`.
 
         Parameters
         ----------
@@ -2572,13 +2594,23 @@ class MapDatasetOnOff(MapDataset):
     def stack(self, other, nan_to_num=True):
         r"""Stack another dataset in place.
 
-        The ``acceptance`` of the stacked dataset is normalized to 1,
-        and the stacked ``acceptance_off`` is scaled so that:
+        Safe mask is applied to the other dataset to compute the stacked counts data,
+        counts outside the safe mask are lost (as for `~gammapy.MapDataset.stack`).
+
+        The ``acceptance`` of the stacked dataset is obtained by stacking the acceptance weighted
+        by the other mask_safe onto the current unweighted acceptance.
+
+        Note that the masking is not applied to the current dataset. If masking needs
+        to be applied to it, use `~gammapy.MapDataset.to_masked()` first.
+
+        The stacked ``acceptance_off`` is scaled so that:
 
         .. math::
             \alpha_\text{stacked} =
             \frac{1}{a_\text{off}} =
             \frac{\alpha_1\text{OFF}_1 + \alpha_2\text{OFF}_2}{\text{OFF}_1 + OFF_2}.
+
+        For details, see :ref:`stack`.
 
         Parameters
         ----------
@@ -2596,16 +2628,16 @@ class MapDatasetOnOff(MapDataset):
         geom = self.counts.geom
         total_off = Map.from_geom(geom)
         total_alpha = Map.from_geom(geom)
+        total_acceptance = Map.from_geom(geom)
+
+        total_acceptance.stack(self.acceptance, nan_to_num=nan_to_num)
+        total_acceptance.stack(
+            other.acceptance, weights=other.mask_safe, nan_to_num=nan_to_num
+        )
 
         if self.counts_off:
-            total_off.stack(
-                self.counts_off, weights=self.mask_safe, nan_to_num=nan_to_num
-            )
-            total_alpha.stack(
-                self.alpha * self.counts_off,
-                weights=self.mask_safe,
-                nan_to_num=nan_to_num,
-            )
+            total_off.stack(self.counts_off, nan_to_num=nan_to_num)
+            total_alpha.stack(self.alpha * self.counts_off, nan_to_num=nan_to_num)
         if other.counts_off:
             total_off.stack(
                 other.counts_off, weights=other.mask_safe, nan_to_num=nan_to_num
@@ -2617,15 +2649,15 @@ class MapDatasetOnOff(MapDataset):
             )
 
         with np.errstate(divide="ignore", invalid="ignore"):
-            acceptance_off = total_off / total_alpha
+            acceptance_off = total_acceptance * total_off / total_alpha
             average_alpha = total_alpha.data.sum() / total_off.data.sum()
 
         # For the bins where the stacked OFF counts equal 0, the alpha value is
         # performed by weighting on the total OFF counts of each run
         is_zero = total_off.data == 0
-        acceptance_off.data[is_zero] = 1 / average_alpha
+        acceptance_off.data[is_zero] = total_acceptance.data[is_zero] / average_alpha
 
-        self.acceptance.data[...] = 1
+        self.acceptance.data[...] = total_acceptance.data
         self.acceptance_off = acceptance_off
 
         self.counts_off = total_off

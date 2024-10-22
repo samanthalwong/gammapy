@@ -1,9 +1,9 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 """Session class driving the high level interface API."""
+
 import html
 import logging
 from astropy.coordinates import SkyCoord
-from astropy.table import Table
 from regions import CircleSkyRegion
 from gammapy.analysis.config import AnalysisConfig
 from gammapy.data import DataStore
@@ -27,6 +27,7 @@ from gammapy.modeling import Fit
 from gammapy.modeling.models import DatasetModels, FoVBackgroundModel, Models
 from gammapy.utils.pbar import progress_bar
 from gammapy.utils.scripts import make_path
+from .utils import make_obs_table_selection
 
 __all__ = ["Analysis"]
 
@@ -102,38 +103,8 @@ class Analysis:
     def _make_obs_table_selection(self):
         """Return list of obs_ids after filtering on datastore observation table."""
         obs_settings = self.config.observations
-
-        # Reject configs with list of obs_ids and obs_file set at the same time
-        if len(obs_settings.obs_ids) and obs_settings.obs_file is not None:
-            raise ValueError(
-                "Values for both parameters obs_ids and obs_file are not accepted."
-            )
-
-        # First select input list of observations from obs_table
-        if len(obs_settings.obs_ids):
-            selected_obs_table = self.datastore.obs_table.select_obs_id(
-                obs_settings.obs_ids
-            )
-        elif obs_settings.obs_file is not None:
-            path = make_path(obs_settings.obs_file)
-            ids = list(Table.read(path, format="ascii", data_start=0).columns[0])
-            selected_obs_table = self.datastore.obs_table.select_obs_id(ids)
-        else:
-            selected_obs_table = self.datastore.obs_table
-
-        # Apply cone selection
-        if obs_settings.obs_cone.lon is not None:
-            cone = dict(
-                type="sky_circle",
-                frame=obs_settings.obs_cone.frame,
-                lon=obs_settings.obs_cone.lon,
-                lat=obs_settings.obs_cone.lat,
-                radius=obs_settings.obs_cone.radius,
-                border="0 deg",
-            )
-            selected_obs_table = selected_obs_table.select_observations(cone)
-
-        return selected_obs_table["OBS_ID"].tolist()
+        selected = make_obs_table_selection(self.datastore.obs_table, **obs_settings)
+        return selected
 
     def get_observations(self):
         """Fetch observations from the data store according to criteria defined in the configuration."""

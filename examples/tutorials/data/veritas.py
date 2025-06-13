@@ -81,7 +81,7 @@ from astropy.time import Time
 # ``observations = data_store.obs_table.select_obs_id(obs_id=obs_ids)``
 # 
 
-data_store = DataStore.from_dir("crab_point-like")
+data_store = DataStore.from_dir("$GAMMAPY_DATA/veritas/crab-point-like-ED")
 data_store.info()
 
 
@@ -218,7 +218,7 @@ exclusion_geom = WcsGeom.create(
 regions = CircleSkyRegion(center=target_position, radius=0.35 * u.deg)
 all_ex = [regions]
 
-star_data = np.loadtxt("crab_point-like/Hipparcos_MAG8_1997.dat",usecols=(0, 1, 2, 3))
+star_data = np.loadtxt("$GAMMAPY_DATA/veritas/crab-point-like-ED/Hipparcos_MAG8_1997.dat",usecols=(0, 1, 2, 3))
 star_cat = Table(
     {
         "ra": star_data[:, 0],
